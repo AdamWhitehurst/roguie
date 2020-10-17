@@ -6,6 +6,8 @@ mod monster_ai_system;
 pub use monster_ai_system::*;
 mod melee_combat_system;
 pub use melee_combat_system::*;
+mod damage_system;
+pub use damage_system::*;
 mod map_indexing_system;
 pub use map_indexing_system::*;
 mod components;
@@ -36,6 +38,7 @@ impl GameState for State {
 
         if self.runstate == RunState::Running {
             self.run_systems();
+            damage_system::delete_the_dead(&mut self.ecs);
             self.runstate = RunState::Paused;
         } else {
             self.runstate = player_input(self, ctx);
@@ -60,10 +63,14 @@ impl State {
     fn run_systems(&mut self) {
         let mut vis = VisibilitySystem {};
         vis.run_now(&self.ecs);
-        let mut mob = MonsterAI {};
+        let mut mob = MonsterAISystem {};
         mob.run_now(&self.ecs);
         let mut mapindex = MapIndexingSystem {};
         mapindex.run_now(&self.ecs);
+        let mut meleecombat = MeleeCombatSystem {};
+        meleecombat.run_now(&self.ecs);
+        let mut damagesystem = DamageSystem {};
+        damagesystem.run_now(&self.ecs);
         self.ecs.maintain();
     }
 }
@@ -84,7 +91,7 @@ fn main() -> rltk::BError {
     gs.ecs.register::<Renderable>();
     gs.ecs.register::<Player>();
     gs.ecs.register::<Viewshed>();
-    gs.ecs.register::<Monster>();
+    gs.ecs.register::<MonsterAI>();
     gs.ecs.register::<BlocksTile>();
     gs.ecs.register::<CombatStats>();
     gs.ecs.register::<SufferDamage>();
@@ -124,7 +131,7 @@ fn main() -> rltk::BError {
                 range: 8,
                 dirty: true,
             })
-            .with(Monster {})
+            .with(MonsterAI::new())
             .with(BlocksTile {})
             .with(Name {
                 name: format!("{} #{}", &name, i),

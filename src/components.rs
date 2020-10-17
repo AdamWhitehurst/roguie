@@ -1,11 +1,11 @@
-use rltk::RGB;
+use rltk::{Point, RGB};
 use serde::*;
 use specs::error::NoError;
 use specs::saveload::ConvertSaveload;
 use specs::{prelude::*, saveload::Marker};
 use specs_derive::*;
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
@@ -14,7 +14,15 @@ pub struct Position {
 #[derive(Component, Debug)]
 pub struct Player {}
 #[derive(Component, Debug)]
-pub struct Monster {}
+pub struct MonsterAI {
+    pub target_point: Option<Point>,
+}
+
+impl MonsterAI {
+    pub fn new() -> MonsterAI {
+        MonsterAI { target_point: None }
+    }
+}
 #[derive(Component, Debug)]
 pub struct Name {
     pub name: String,
