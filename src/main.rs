@@ -15,11 +15,13 @@ pub use components::*;
 mod map;
 pub use map::*;
 mod player;
-use player::*;
+pub use player::*;
+mod gui;
+pub use gui::*;
 mod rect;
 pub use rect::Rect;
 mod visibility_system;
-use visibility_system::VisibilitySystem;
+pub use visibility_system::VisibilitySystem;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum RunState {
@@ -80,6 +82,8 @@ impl GameState for State {
                 ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
             }
         }
+
+        gui::draw_ui(&self.ecs, ctx);
     }
 }
 
