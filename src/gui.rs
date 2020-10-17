@@ -1,5 +1,5 @@
-use super::{CombatStats, Player};
-use rltk::{Console, Rltk, RGB};
+use super::{CombatStats, GameLog, Player};
+use rltk::{Rltk, RGB};
 use specs::prelude::*;
 
 pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
@@ -14,6 +14,15 @@ pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
 
     let combat_stats = ecs.read_storage::<CombatStats>();
     let players = ecs.read_storage::<Player>();
+    let log = ecs.fetch::<GameLog>();
+
+    let mut y = 44;
+    for s in log.entries.iter().rev() {
+        if y < 49 {
+            ctx.print(2, y, s);
+            y += 1;
+        }
+    }
 
     for (_player, stats) in (&players, &combat_stats).join() {
         let health = format!(" HP: {} / {} ", stats.hp, stats.max_hp);
