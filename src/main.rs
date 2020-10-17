@@ -23,26 +23,50 @@ use visibility_system::VisibilitySystem;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum RunState {
-    Paused,
-    Running,
+    /// Systems have fully responded to latest player
+    /// inputs and are now waiting for newer input
+    AwaitingInput,
+    /// Initial set up phase
+    PreRun,
+    /// Player has made new inputs and systems need
+    /// to respond
+    PlayerTurn,
+    /// Systems have responded to latest player input
+    /// and now ai (etc.) need to respond
+    MonsterTurn,
 }
 
 pub struct State {
     pub ecs: World,
-    pub runstate: RunState,
 }
 
 impl GameState for State {
     fn tick(&mut self, ctx: &mut Rltk) {
         ctx.cls();
+        let mut newrunstate = *(self.ecs.fetch::<RunState>());
 
-        if self.runstate == RunState::Running {
-            self.run_systems();
-            damage_system::delete_the_dead(&mut self.ecs);
-            self.runstate = RunState::Paused;
-        } else {
-            self.runstate = player_input(self, ctx);
+        newrunstate = match newrunstate {
+            RunState::PreRun => {
+                self.run_systems();
+                RunState::AwaitingInput
+            }
+            RunState::PlayerTurn => {
+                self.run_systems();
+                RunState::MonsterTurn
+            }
+            RunState::MonsterTurn => {
+                self.run_systems();
+                RunState::AwaitingInput
+            }
+            RunState::AwaitingInput => player_input(self, ctx),
+        };
+
+        {
+            let mut runwriter = self.ecs.write_resource::<RunState>();
+            *runwriter = newrunstate;
         }
+
+        damage_system::delete_the_dead(&mut self.ecs);
 
         draw_map(&self.ecs, ctx);
 
@@ -81,10 +105,7 @@ fn main() -> rltk::BError {
         .with_title("Roguelike Tutorial")
         .build()?;
 
-    let mut gs = State {
-        ecs: World::new(),
-        runstate: RunState::Running,
-    };
+    let mut gs = State { ecs: World::new() };
 
     gs.ecs.register::<Position>();
     gs.ecs.register::<Name>();
@@ -146,9 +167,11 @@ fn main() -> rltk::BError {
     }
 
     gs.ecs.insert(map);
+    gs.ecs.insert(RunState::PreRun);
     gs.ecs.insert(Point::new(player_x, player_y));
 
-    gs.ecs
+    let player_entity = gs
+        .ecs
         .create_entity()
         .with(Position {
             x: player_x,
@@ -175,6 +198,7 @@ fn main() -> rltk::BError {
             name: "Player".to_string(),
         })
         .build();
+    gs.ecs.insert(player_entity);
 
     rltk::main_loop(context, gs)
 }
