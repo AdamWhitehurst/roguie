@@ -128,6 +128,7 @@ fn main() -> rltk::BError {
     let (player_x, player_y) = map.rooms[0].center();
 
     let mut rng = rltk::RandomNumberGenerator::new();
+
     for (i, room) in map.rooms.iter().skip(1).enumerate() {
         let (x, y) = room.center();
 
@@ -178,6 +179,7 @@ fn main() -> rltk::BError {
     });
     gs.ecs.insert(RunState::PreRun);
     gs.ecs.insert(Point::new(player_x, player_y));
+    gs.ecs.insert(rng);
 
     let player_entity = gs
         .ecs
