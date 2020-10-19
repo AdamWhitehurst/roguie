@@ -7,9 +7,9 @@ const MAX_ROOMS: i32 = 30;
 const MIN_SIZE: i32 = 6;
 const MAX_SIZE: i32 = 10;
 
-const MAP_WIDTH: usize = 80;
-const MAP_HEIGHT: usize = 43;
-const MAP_COUNT: usize = MAP_HEIGHT * MAP_WIDTH;
+pub const MAP_WIDTH: usize = 80;
+pub const MAP_HEIGHT: usize = 43;
+pub const MAP_COUNT: usize = MAP_HEIGHT * MAP_WIDTH;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum TileType {
