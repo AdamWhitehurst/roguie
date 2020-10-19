@@ -1,5 +1,5 @@
 #![allow(unused_variables)]
-use rltk::{GameState, Point, Rltk, RGB};
+use rltk::{GameState, Point, Rltk};
 use specs::prelude::*;
 
 mod monster_ai_system;
@@ -26,6 +26,8 @@ mod visibility_system;
 pub use visibility_system::VisibilitySystem;
 mod spawner;
 pub use spawner::*;
+mod inventory_system;
+pub use inventory_system::*;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum RunState {
@@ -103,6 +105,8 @@ impl State {
         meleecombat.run_now(&self.ecs);
         let mut damagesystem = DamageSystem {};
         damagesystem.run_now(&self.ecs);
+        let mut pickup = ItemCollectionSystem {};
+        pickup.run_now(&self.ecs);
         self.ecs.maintain();
     }
 }
@@ -125,6 +129,8 @@ fn main() -> rltk::BError {
     gs.ecs.register::<CombatStats>();
     gs.ecs.register::<SufferDamage>();
     gs.ecs.register::<WantsToMelee>();
+    gs.ecs.register::<WantsToPickupItem>();
+    gs.ecs.register::<InBackpack>();
     gs.ecs.register::<Item>();
     gs.ecs.register::<Potion>();
 
@@ -132,6 +138,7 @@ fn main() -> rltk::BError {
     let (player_x, player_y) = map.rooms[0].center();
 
     let rng = rltk::RandomNumberGenerator::new();
+    gs.ecs.insert(rng);
 
     let player_entity = spawner::player(&mut gs.ecs, player_x, player_y);
 
@@ -145,7 +152,6 @@ fn main() -> rltk::BError {
     });
     gs.ecs.insert(RunState::PreRun);
     gs.ecs.insert(Point::new(player_x, player_y));
-    gs.ecs.insert(rng);
     gs.ecs.insert(player_entity);
 
     rltk::main_loop(context, gs)
