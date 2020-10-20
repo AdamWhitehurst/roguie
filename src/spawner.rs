@@ -1,6 +1,6 @@
 use super::{
-    BlocksTile, CombatStats, Item, MonsterAI, Name, Player, Position, Potion, Rect, Renderable,
-    Viewshed, MAP_WIDTH,
+    BlocksTile, CombatStats, GameLog, Item, MonsterAI, Name, Player, Position, Potion, Rect,
+    Renderable, Viewshed, MAP_WIDTH,
 };
 use rltk::{RandomNumberGenerator, RGB};
 use specs::prelude::*;
@@ -95,7 +95,7 @@ pub fn spawn_room(ecs: &mut World, room: &Rect) {
     {
         let mut rng = ecs.write_resource::<RandomNumberGenerator>();
         let num_monsters = rng.roll_dice(1, MAX_MONSTERS + 2) - 3;
-        let num_items = rng.roll_dice(0, MAX_ITEMS + 2) - 3;
+        let num_items = rng.roll_dice(1, MAX_ITEMS + 2) - 3;
 
         for _i in 0..num_monsters {
             let mut added = false;
@@ -133,6 +133,10 @@ pub fn spawn_room(ecs: &mut World, room: &Rect) {
     for idx in item_spawn_points.iter() {
         let x = *idx % MAP_WIDTH;
         let y = *idx / MAP_WIDTH;
+        {
+            let mut log = ecs.fetch_mut::<GameLog>();
+            log.entries.push(format!("Item: {}, {}", x, y));
+        }
         health_potion(ecs, x as i32, y as i32);
     }
 }

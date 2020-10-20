@@ -114,9 +114,9 @@ impl State {
 fn main() -> rltk::BError {
     use rltk::RltkBuilder;
     let context = RltkBuilder::simple80x50()
+        .with_automatic_console_resize(true)
         .with_title("Roguelike Tutorial")
         .build()?;
-
     let mut gs = State { ecs: World::new() };
 
     gs.ecs.register::<Position>();
@@ -136,23 +136,21 @@ fn main() -> rltk::BError {
 
     let map: Map = Map::new_map_rooms_and_corridors();
     let (player_x, player_y) = map.rooms[0].center();
+    let player_entity = spawner::player(&mut gs.ecs, player_x, player_y);
+    gs.ecs.insert(player_entity);
 
     let rng = rltk::RandomNumberGenerator::new();
     gs.ecs.insert(rng);
-
-    let player_entity = spawner::player(&mut gs.ecs, player_x, player_y);
-
-    for room in map.rooms.iter().skip(1) {
-        spawner::spawn_room(&mut gs.ecs, room);
-    }
-
-    gs.ecs.insert(map);
     gs.ecs.insert(GameLog {
         entries: vec!["Welcome to Roguie".to_string()],
     });
     gs.ecs.insert(RunState::PreRun);
     gs.ecs.insert(Point::new(player_x, player_y));
-    gs.ecs.insert(player_entity);
+
+    for room in map.rooms.iter().skip(1) {
+        spawner::spawn_room(&mut gs.ecs, room);
+    }
+    gs.ecs.insert(map);
 
     rltk::main_loop(context, gs)
 }
