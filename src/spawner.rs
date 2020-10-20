@@ -95,7 +95,7 @@ pub fn spawn_room(ecs: &mut World, room: &Rect) {
     {
         let mut rng = ecs.write_resource::<RandomNumberGenerator>();
         let num_monsters = rng.roll_dice(1, MAX_MONSTERS + 2) - 3;
-        let num_items = rng.roll_dice(1, MAX_ITEMS + 2) - 3;
+        let num_items = rng.roll_dice(1, MAX_ITEMS + 2) - 0;
 
         for _i in 0..num_monsters {
             let mut added = false;

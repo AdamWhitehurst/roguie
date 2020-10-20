@@ -42,6 +42,8 @@ pub enum RunState {
     /// Systems have responded to latest player input
     /// and now ai (etc.) need to respond
     MonsterTurn,
+    /// When user has their inventory screen open
+    ShowInventory,
 }
 
 pub struct State {
@@ -67,6 +69,14 @@ impl GameState for State {
                 RunState::AwaitingInput
             }
             RunState::AwaitingInput => player_input(self, ctx),
+
+            RunState::ShowInventory => {
+                if gui::show_inventory(self, ctx) == gui::ItemMenuResult::Cancel {
+                    RunState::AwaitingInput
+                } else {
+                    RunState::ShowInventory
+                }
+            }
         };
 
         {
