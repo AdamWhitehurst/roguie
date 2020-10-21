@@ -44,6 +44,8 @@ pub enum RunState {
     MonsterTurn,
     /// When user has their inventory screen open
     ShowInventory,
+    /// When user has their drop-item screen open
+    ShowDropItem,
 }
 
 pub struct State {
@@ -54,6 +56,8 @@ impl GameState for State {
     fn tick(&mut self, ctx: &mut Rltk) {
         ctx.cls();
         let mut newrunstate = *(self.ecs.fetch::<RunState>());
+
+        draw_map(&self.ecs, ctx);
 
         newrunstate = match newrunstate {
             RunState::PreRun => {
@@ -71,10 +75,43 @@ impl GameState for State {
             RunState::AwaitingInput => player_input(self, ctx),
 
             RunState::ShowInventory => {
-                if gui::show_inventory(self, ctx) == gui::ItemMenuResult::Cancel {
-                    RunState::AwaitingInput
-                } else {
-                    RunState::ShowInventory
+                let result = gui::show_inventory(self, ctx);
+                match result.0 {
+                    gui::ItemMenuResult::Cancel => RunState::AwaitingInput,
+                    gui::ItemMenuResult::NoResponse => RunState::ShowInventory,
+                    gui::ItemMenuResult::Selected => {
+                        let item_entity = result.1.unwrap();
+                        let mut intent = self.ecs.write_storage::<WantsToDrinkPotion>();
+                        intent
+                            .insert(
+                                *self.ecs.fetch::<Entity>(),
+                                WantsToDrinkPotion {
+                                    potion: item_entity,
+                                },
+                            )
+                            .expect("Unable to insert intent");
+
+                        RunState::PlayerTurn
+                    }
+                }
+            }
+
+            RunState::ShowDropItem => {
+                let result = gui::drop_item_menu(self, ctx);
+                match result.0 {
+                    gui::ItemMenuResult::Cancel => RunState::AwaitingInput,
+                    gui::ItemMenuResult::NoResponse => RunState::ShowDropItem,
+                    gui::ItemMenuResult::Selected => {
+                        let item_entity = result.1.unwrap();
+                        let mut intent = self.ecs.write_storage::<WantsToDropItem>();
+                        intent
+                            .insert(
+                                *self.ecs.fetch::<Entity>(),
+                                WantsToDropItem { item: item_entity },
+                            )
+                            .expect("Unable to insert intent");
+                        RunState::PlayerTurn
+                    }
                 }
             }
         };
@@ -86,13 +123,14 @@ impl GameState for State {
 
         damage_system::delete_the_dead(&mut self.ecs);
 
-        draw_map(&self.ecs, ctx);
-
         let positions = self.ecs.read_storage::<Position>();
         let renderables = self.ecs.read_storage::<Renderable>();
         let map = self.ecs.fetch::<Map>();
 
-        for (pos, render) in (&positions, &renderables).join() {
+        let mut data = (&positions, &renderables).join().collect::<Vec<_>>();
+        data.sort_by(|&a, &b| b.1.render_order.cmp(&a.1.render_order));
+
+        for (pos, render) in data.iter() {
             let idx = map.xy_idx(pos.x, pos.y);
             if map.visible_tiles[idx] {
                 ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
@@ -117,6 +155,10 @@ impl State {
         damagesystem.run_now(&self.ecs);
         let mut pickup = ItemCollectionSystem {};
         pickup.run_now(&self.ecs);
+        let mut potions = PotionUseSystem {};
+        potions.run_now(&self.ecs);
+        let mut drop_items = ItemDropSystem {};
+        drop_items.run_now(&self.ecs);
         self.ecs.maintain();
     }
 }
@@ -140,6 +182,8 @@ fn main() -> rltk::BError {
     gs.ecs.register::<SufferDamage>();
     gs.ecs.register::<WantsToMelee>();
     gs.ecs.register::<WantsToPickupItem>();
+    gs.ecs.register::<WantsToDropItem>();
+    gs.ecs.register::<WantsToDrinkPotion>();
     gs.ecs.register::<InBackpack>();
     gs.ecs.register::<Item>();
     gs.ecs.register::<Potion>();

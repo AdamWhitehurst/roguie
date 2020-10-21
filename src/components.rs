@@ -28,6 +28,14 @@ pub struct Name {
     pub name: String,
 }
 
+impl Default for Name {
+    fn default() -> Self {
+        Name {
+            name: "{{NAME MISSING}}".to_string(),
+        }
+    }
+}
+
 #[derive(Component, Debug)]
 pub struct CombatStats {
     pub max_hp: i32,
@@ -44,6 +52,7 @@ pub struct Renderable {
     pub glyph: rltk::FontCharType,
     pub fg: RGB,
     pub bg: RGB,
+    pub render_order: i32,
 }
 
 #[derive(Component)]
@@ -91,5 +100,15 @@ pub struct InBackpack {
 #[derive(Component, Debug, Clone)]
 pub struct WantsToPickupItem {
     pub collected_by: Entity,
+    pub item: Entity,
+}
+
+#[derive(Component, Debug)]
+pub struct WantsToDrinkPotion {
+    pub potion: Entity,
+}
+
+#[derive(Component, Debug, ConvertSaveload, Clone)]
+pub struct WantsToDropItem {
     pub item: Entity,
 }

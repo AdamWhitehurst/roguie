@@ -1,6 +1,6 @@
 use super::{
-    BlocksTile, CombatStats, GameLog, Item, MonsterAI, Name, Player, Position, Potion, Rect,
-    Renderable, Viewshed, MAP_WIDTH,
+    BlocksTile, CombatStats, Item, MonsterAI, Name, Player, Position, Potion, Rect, Renderable,
+    Viewshed, MAP_WIDTH,
 };
 use rltk::{RandomNumberGenerator, RGB};
 use specs::prelude::*;
@@ -19,6 +19,7 @@ pub fn player(ecs: &mut World, player_x: i32, player_y: i32) -> Entity {
             glyph: rltk::to_cp437('@'),
             fg: RGB::named(rltk::YELLOW),
             bg: RGB::named(rltk::BLACK),
+            render_order: 0,
         })
         .with(Player {})
         .with(Viewshed {
@@ -66,6 +67,7 @@ fn monster<S: ToString>(ecs: &mut World, x: i32, y: i32, glyph: rltk::FontCharTy
             glyph,
             fg: RGB::named(rltk::RED),
             bg: RGB::named(rltk::BLACK),
+            render_order: 1,
         })
         .with(Viewshed {
             visible_tiles: Vec::new(),
@@ -95,7 +97,7 @@ pub fn spawn_room(ecs: &mut World, room: &Rect) {
     {
         let mut rng = ecs.write_resource::<RandomNumberGenerator>();
         let num_monsters = rng.roll_dice(1, MAX_MONSTERS + 2) - 3;
-        let num_items = rng.roll_dice(1, MAX_ITEMS + 2) - 0;
+        let num_items = rng.roll_dice(1, MAX_ITEMS + 2) - 2;
 
         for _i in 0..num_monsters {
             let mut added = false;
@@ -133,10 +135,7 @@ pub fn spawn_room(ecs: &mut World, room: &Rect) {
     for idx in item_spawn_points.iter() {
         let x = *idx % MAP_WIDTH;
         let y = *idx / MAP_WIDTH;
-        {
-            let mut log = ecs.fetch_mut::<GameLog>();
-            log.entries.push(format!("Item: {}, {}", x, y));
-        }
+
         health_potion(ecs, x as i32, y as i32);
     }
 }
@@ -149,6 +148,7 @@ fn health_potion(ecs: &mut World, x: i32, y: i32) {
             glyph: rltk::to_cp437('¡'),
             fg: RGB::named(rltk::MAGENTA),
             bg: RGB::named(rltk::BLACK),
+            render_order: 2,
         })
         .with(Name {
             name: "Health Potion".to_string(),
