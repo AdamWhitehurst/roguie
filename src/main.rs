@@ -46,6 +46,8 @@ pub enum RunState {
     ShowInventory,
     /// When user has their drop-item screen open
     ShowDropItem,
+    /// When user has to select a target for a spell
+    ShowTargeting { range: i32, item: Entity },
 }
 
 pub struct State {
@@ -81,15 +83,27 @@ impl GameState for State {
                     gui::ItemMenuResult::NoResponse => RunState::ShowInventory,
                     gui::ItemMenuResult::Selected => {
                         let item_entity = result.1.unwrap();
-                        let mut intent = self.ecs.write_storage::<WantToUseItem>();
-                        intent
-                            .insert(
-                                *self.ecs.fetch::<Entity>(),
-                                WantToUseItem { item: item_entity },
-                            )
-                            .expect("Unable to insert intent");
+                        let is_ranged = self.ecs.read_storage::<Ranged>();
+                        let is_item_ranged = is_ranged.get(item_entity);
+                        if let Some(ranged_item) = is_item_ranged {
+                            RunState::ShowTargeting {
+                                range: ranged_item.range,
+                                item: item_entity,
+                            }
+                        } else {
+                            let mut intent = self.ecs.write_storage::<WantsToUseItem>();
+                            intent
+                                .insert(
+                                    *self.ecs.fetch::<Entity>(),
+                                    WantsToUseItem {
+                                        item: item_entity,
+                                        target: None,
+                                    },
+                                )
+                                .expect("Unable to insert intent");
 
-                        RunState::PlayerTurn
+                            RunState::PlayerTurn
+                        }
                     }
                 }
             }
@@ -108,6 +122,22 @@ impl GameState for State {
                                 WantsToDropItem { item: item_entity },
                             )
                             .expect("Unable to insert intent");
+                        RunState::PlayerTurn
+                    }
+                }
+            }
+
+            RunState::ShowTargeting { range, item } => {
+                let (action, target) = gui::ranged_target(self, ctx, range);
+                match action {
+                    gui::ItemMenuResult::Cancel => RunState::AwaitingInput,
+                    gui::ItemMenuResult::NoResponse => RunState::ShowTargeting { range, item },
+                    gui::ItemMenuResult::Selected => {
+                        let mut intent = self.ecs.write_storage::<WantsToUseItem>();
+                        intent
+                            .insert(*self.ecs.fetch::<Entity>(), WantsToUseItem { item, target })
+                            .expect("Unable to insert intent");
+
                         RunState::PlayerTurn
                     }
                 }
@@ -181,11 +211,15 @@ fn main() -> rltk::BError {
     gs.ecs.register::<WantsToMelee>();
     gs.ecs.register::<WantsToPickupItem>();
     gs.ecs.register::<WantsToDropItem>();
-    gs.ecs.register::<WantToUseItem>();
+    gs.ecs.register::<WantsToUseItem>();
     gs.ecs.register::<InBackpack>();
     gs.ecs.register::<Item>();
     gs.ecs.register::<Consumable>();
     gs.ecs.register::<ProvidesHealing>();
+    gs.ecs.register::<Ranged>();
+    gs.ecs.register::<InflictsDamage>();
+    gs.ecs.register::<AreaOfEffect>();
+    gs.ecs.register::<Confusion>();
 
     let map: Map = Map::new_map_rooms_and_corridors();
     let (player_x, player_y) = map.rooms[0].center();
