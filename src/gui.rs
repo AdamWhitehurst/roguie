@@ -1,6 +1,24 @@
-use super::{CombatStats, GameLog, InBackpack, Map, Name, Player, Position, State, Viewshed};
+extern crate serde;
+use super::{
+    CombatStats, Equipped, GameLog, InBackpack, Map, Name, Player, Position, RunState, State,
+    Viewshed,
+};
 use rltk::{Point, Rltk, VirtualKeyCode, RGB};
 use specs::prelude::*;
+
+#[derive(PartialEq, Copy, Clone)]
+pub enum MainMenuSelection {
+    ResumeGame,
+    NewGame,
+    LoadGame,
+    Quit,
+}
+
+#[derive(PartialEq, Copy, Clone)]
+pub enum MainMenuResult {
+    NoSelection { selected: MainMenuSelection },
+    Selected { selected: MainMenuSelection },
+}
 
 pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
     ctx.draw_box(
@@ -44,6 +62,16 @@ pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
             y += 1;
         }
     }
+
+    let map = ecs.fetch::<Map>();
+    let depth = format!("Depth: {}", map.depth);
+    ctx.print_color(
+        2,
+        43,
+        RGB::named(rltk::YELLOW),
+        RGB::named(rltk::BLACK),
+        &depth,
+    );
 
     let mouse_pos = ctx.mouse_pos();
     ctx.set_bg(mouse_pos.0, mouse_pos.1, RGB::named(rltk::MAGENTA));
@@ -148,7 +176,6 @@ fn draw_tooltips(ecs: &World, ctx: &mut Rltk) {
         }
     }
 }
-
 #[derive(PartialEq, Copy, Clone)]
 pub enum ItemMenuResult {
     Cancel,
@@ -393,4 +420,243 @@ pub fn ranged_target(
     }
 
     (ItemMenuResult::NoResponse, None)
+}
+
+pub fn main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
+    let runstate = gs.ecs.fetch::<RunState>();
+    let save_exists = super::does_save_exist();
+    let can_quit = super::can_quit_game();
+
+    ctx.print_color_centered(
+        15,
+        RGB::named(rltk::YELLOW),
+        RGB::named(rltk::BLACK),
+        "Roguie",
+    );
+
+    if let RunState::MainMenu {
+        menu_selection: selection,
+    } = *runstate
+    {
+        let mut rg_fg = RGB::named(rltk::WHITE);
+        let mut ng_fg = RGB::named(rltk::WHITE);
+        let mut lg_fg = RGB::named(rltk::WHITE);
+        let mut q_fg = RGB::named(rltk::WHITE);
+
+        match selection {
+            MainMenuSelection::ResumeGame => rg_fg = RGB::named(rltk::MAGENTA),
+            MainMenuSelection::NewGame => ng_fg = RGB::named(rltk::MAGENTA),
+            MainMenuSelection::LoadGame => lg_fg = RGB::named(rltk::MAGENTA),
+            MainMenuSelection::Quit => q_fg = RGB::named(rltk::MAGENTA),
+        }
+
+        ctx.print_color_centered(23, rg_fg, RGB::named(rltk::BLACK), "Resume Game");
+        ctx.print_color_centered(24, ng_fg, RGB::named(rltk::BLACK), "Begin New Game");
+
+        if save_exists {
+            ctx.print_color_centered(25, lg_fg, RGB::named(rltk::BLACK), "Load Game");
+        }
+        if can_quit {
+            ctx.print_color_centered(26, q_fg, RGB::named(rltk::BLACK), "Quit");
+        }
+
+        match ctx.key {
+            None => {
+                return MainMenuResult::NoSelection {
+                    selected: selection,
+                }
+            }
+            Some(key) => match key {
+                VirtualKeyCode::Escape => {
+                    return MainMenuResult::NoSelection {
+                        selected: MainMenuSelection::ResumeGame,
+                    }
+                }
+                VirtualKeyCode::Up | VirtualKeyCode::K => {
+                    let mut newselection;
+                    match selection {
+                        MainMenuSelection::ResumeGame => newselection = MainMenuSelection::Quit,
+                        MainMenuSelection::NewGame => newselection = MainMenuSelection::ResumeGame,
+                        MainMenuSelection::LoadGame => newselection = MainMenuSelection::NewGame,
+                        MainMenuSelection::Quit => newselection = MainMenuSelection::LoadGame,
+                    }
+                    // Skip Quit Game option if this would crash game (in wasm)
+                    if newselection == MainMenuSelection::Quit && !can_quit {
+                        newselection = MainMenuSelection::LoadGame;
+                    }
+                    // When a save file does not exist, skip Load Game option
+                    if newselection == MainMenuSelection::LoadGame && !save_exists {
+                        newselection = MainMenuSelection::NewGame;
+                    }
+
+                    return MainMenuResult::NoSelection {
+                        selected: newselection,
+                    };
+                }
+                VirtualKeyCode::Down | VirtualKeyCode::J => {
+                    let mut newselection;
+                    match selection {
+                        MainMenuSelection::ResumeGame => newselection = MainMenuSelection::NewGame,
+                        MainMenuSelection::NewGame => newselection = MainMenuSelection::LoadGame,
+                        MainMenuSelection::LoadGame => newselection = MainMenuSelection::Quit,
+                        MainMenuSelection::Quit => newselection = MainMenuSelection::ResumeGame,
+                    }
+
+                    // When a save file does not exist, skip Load Game option
+                    if newselection == MainMenuSelection::LoadGame && !save_exists {
+                        newselection = MainMenuSelection::Quit;
+                    }
+
+                    // Skip Quit Game option if this would crash game (in wasm)
+                    if newselection == MainMenuSelection::Quit && !can_quit {
+                        newselection = MainMenuSelection::ResumeGame;
+                    }
+
+                    return MainMenuResult::NoSelection {
+                        selected: newselection,
+                    };
+                }
+                VirtualKeyCode::Return => {
+                    return MainMenuResult::Selected {
+                        selected: selection,
+                    }
+                }
+                _ => {
+                    return MainMenuResult::NoSelection {
+                        selected: selection,
+                    }
+                }
+            },
+        }
+    }
+
+    MainMenuResult::NoSelection {
+        selected: MainMenuSelection::NewGame,
+    }
+}
+
+pub fn remove_item_menu(gs: &mut State, ctx: &mut Rltk) -> (ItemMenuResult, Option<Entity>) {
+    let player_entity = gs.ecs.fetch::<Entity>();
+    let names = gs.ecs.read_storage::<Name>();
+    let backpack = gs.ecs.read_storage::<Equipped>();
+    let entities = gs.ecs.entities();
+
+    let inventory = (&backpack, &names)
+        .join()
+        .filter(|item| item.0.owner == *player_entity);
+    let count = inventory.count();
+
+    let mut y = (25 - (count / 2)) as i32;
+    ctx.draw_box(
+        15,
+        y - 2,
+        31,
+        (count + 3) as i32,
+        RGB::named(rltk::WHITE),
+        RGB::named(rltk::BLACK),
+    );
+    ctx.print_color(
+        18,
+        y - 2,
+        RGB::named(rltk::YELLOW),
+        RGB::named(rltk::BLACK),
+        "Remove Which Item?",
+    );
+    ctx.print_color(
+        18,
+        y + count as i32 + 1,
+        RGB::named(rltk::YELLOW),
+        RGB::named(rltk::BLACK),
+        "ESCAPE to cancel",
+    );
+
+    let mut equippable: Vec<Entity> = Vec::new();
+    let mut j = 0;
+    for (entity, _pack, name) in (&entities, &backpack, &names)
+        .join()
+        .filter(|item| item.1.owner == *player_entity)
+    {
+        ctx.set(
+            17,
+            y,
+            RGB::named(rltk::WHITE),
+            RGB::named(rltk::BLACK),
+            rltk::to_cp437('('),
+        );
+        ctx.set(
+            18,
+            y,
+            RGB::named(rltk::YELLOW),
+            RGB::named(rltk::BLACK),
+            97 + j as rltk::FontCharType,
+        );
+        ctx.set(
+            19,
+            y,
+            RGB::named(rltk::WHITE),
+            RGB::named(rltk::BLACK),
+            rltk::to_cp437(')'),
+        );
+
+        ctx.print(21, y, &name.name.to_string());
+        equippable.push(entity);
+        y += 1;
+        j += 1;
+    }
+
+    match ctx.key {
+        None => (ItemMenuResult::NoResponse, None),
+        Some(key) => match key {
+            VirtualKeyCode::Escape => (ItemMenuResult::Cancel, None),
+            _ => {
+                let selection = rltk::letter_to_option(key);
+                if selection > -1 && selection < count as i32 {
+                    return (
+                        ItemMenuResult::Selected,
+                        Some(equippable[selection as usize]),
+                    );
+                }
+                (ItemMenuResult::NoResponse, None)
+            }
+        },
+    }
+}
+
+#[derive(PartialEq, Copy, Clone)]
+pub enum GameOverResult {
+    NoSelection,
+    QuitToMenu,
+}
+
+pub fn game_over(ctx: &mut Rltk) -> GameOverResult {
+    ctx.print_color_centered(
+        15,
+        RGB::named(rltk::YELLOW),
+        RGB::named(rltk::BLACK),
+        "Your journey has ended!",
+    );
+    ctx.print_color_centered(
+        17,
+        RGB::named(rltk::WHITE),
+        RGB::named(rltk::BLACK),
+        "One day, we'll tell you all about how you did.",
+    );
+    ctx.print_color_centered(
+        18,
+        RGB::named(rltk::WHITE),
+        RGB::named(rltk::BLACK),
+        "That day, sadly, is not in this chapter..",
+    );
+
+    ctx.print_color_centered(
+        20,
+        RGB::named(rltk::MAGENTA),
+        RGB::named(rltk::BLACK),
+        "Press any key to return to the menu.",
+    );
+
+    match ctx.key {
+        None => GameOverResult::NoSelection,
+        Some(_) => GameOverResult::QuitToMenu,
+    }
 }

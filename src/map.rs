@@ -1,5 +1,7 @@
+use super::spawner;
 use super::Rect;
 use rltk::{Algorithm2D, BaseMap, Point, RandomNumberGenerator, Rltk, SmallVec, RGB};
+use serde::{Deserialize, Serialize};
 use specs::prelude::*;
 use std::cmp::{max, min};
 
@@ -11,13 +13,14 @@ pub const MAP_WIDTH: usize = 80;
 pub const MAP_HEIGHT: usize = 43;
 pub const MAP_COUNT: usize = MAP_HEIGHT * MAP_WIDTH;
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Serialize, Deserialize)]
 pub enum TileType {
     Wall,
     Floor,
+    DownStairs,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize, Clone)]
 pub struct Map {
     pub tiles: Vec<TileType>,
     pub rooms: Vec<Rect>,
@@ -26,6 +29,10 @@ pub struct Map {
     pub revealed_tiles: Vec<bool>,
     pub visible_tiles: Vec<bool>,
     pub blocked: Vec<bool>,
+    pub depth: i32,
+
+    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
     pub tile_content: Vec<Vec<Entity>>,
 }
 
@@ -73,9 +80,22 @@ impl Map {
         }
     }
 
+    /// Randomly fills all `Map`s rooms with stuff, skipping the first
+    /// when `except_first == true`
+    pub fn fill_all_rooms(&mut self, ecs: &mut World, except_first: bool) {
+        let mut iter = self.rooms.iter();
+
+        // Skip the first room
+        if except_first {
+            iter.next();
+        }
+        for room in iter {
+            spawner::fill_room(ecs, room, self.depth);
+        }
+    }
     /// Makes a new map using the algorithm from http://rogueliketutorials.com/tutorials/tcod/part-3/
     /// This gives a handful of random rooms and corridors joining them together.
-    pub fn new_map_rooms_and_corridors() -> Map {
+    pub fn new_map_rooms_and_corridors(new_depth: i32) -> Map {
         let mut map = Map {
             tiles: vec![TileType::Wall; MAP_COUNT],
             rooms: Vec::new(),
@@ -85,11 +105,12 @@ impl Map {
             visible_tiles: vec![false; MAP_COUNT],
             blocked: vec![false; MAP_COUNT],
             tile_content: vec![Vec::new(); MAP_COUNT],
+            depth: new_depth,
         };
 
         let mut rng = RandomNumberGenerator::new();
 
-        for _i in 0..MAX_ROOMS {
+        for i in 0..MAX_ROOMS {
             let w = rng.range(MIN_SIZE, MAX_SIZE);
             let h = rng.range(MIN_SIZE, MAX_SIZE);
             let x = rng.roll_dice(1, map.width - w - 1) - 1;
@@ -120,7 +141,19 @@ impl Map {
             }
         }
 
+        // Add stairs to next level
+        let stairs_position = map.rooms[map.rooms.len() - 1].center();
+        let stairs_idx = map.xy_idx(stairs_position.0, stairs_position.1);
+        map.tiles[stairs_idx] = TileType::DownStairs;
+
         map
+    }
+
+    pub fn new_deeper_map(ecs: &mut World) -> Map {
+        let mut worldmap_resource = ecs.write_resource::<Map>();
+        let current_depth = worldmap_resource.depth;
+        *worldmap_resource = Map::new_map_rooms_and_corridors(current_depth + 1);
+        worldmap_resource.clone()
     }
 
     fn is_exit_valid(&self, x: i32, y: i32) -> bool {
@@ -207,6 +240,10 @@ pub fn draw_map(ecs: &World, ctx: &mut Rltk) {
                 TileType::Wall => {
                     glyph = rltk::to_cp437('#');
                     fg = RGB::from_f32(0., 1.0, 0.);
+                }
+                TileType::DownStairs => {
+                    glyph = rltk::to_cp437('>');
+                    fg = RGB::from_f32(0., 1.0, 1.0);
                 }
             }
             if !map.visible_tiles[idx] {
