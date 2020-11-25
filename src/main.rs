@@ -301,7 +301,7 @@ impl State {
         let rng = rltk::RandomNumberGenerator::new();
         self.ecs.insert(rng);
         self.ecs.insert(GameLog {
-            entries: vec!["Welcome to Roguie".to_string()],
+            entries: vec!["Welcome to Roguie!".to_string()],
         });
         self.ecs.insert(Point::new(player_x, player_y));
 
