@@ -1,4 +1,6 @@
-use super::{Confusion, Map, MonsterAI, Position, RunState, Viewshed, WantsToMelee};
+use super::{
+    Confusion, Map, MonsterAI, ParticleBuilder, Position, RunState, Viewshed, WantsToMelee,
+};
 use rltk::{console, field_of_view, Point};
 use specs::prelude::*;
 
@@ -15,8 +17,10 @@ impl<'a> System<'a> for MonsterAISystem {
         ReadExpect<'a, RunState>,
         WriteStorage<'a, Viewshed>,
         WriteStorage<'a, MonsterAI>,
-        WriteStorage<'a, WantsToMelee>,
         WriteStorage<'a, Position>,
+        WriteStorage<'a, WantsToMelee>,
+        WriteStorage<'a, Confusion>,
+        WriteExpect<'a, ParticleBuilder>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -29,8 +33,10 @@ impl<'a> System<'a> for MonsterAISystem {
             runstate,
             mut viewsheds,
             mut ais,
-            mut wants_to_melee,
             mut positions,
+            mut wants_to_melee,
+            mut confused,
+            mut particle_builder,
         ) = data;
 
         if *runstate != RunState::MonsterTurn {
@@ -50,6 +56,17 @@ impl<'a> System<'a> for MonsterAISystem {
                 }
 
                 can_act = false;
+
+                // Add a particle effect to indicate the entity has lost a turn
+                // to confusion
+                particle_builder.request(
+                    pos.x,
+                    pos.y,
+                    rltk::RGB::named(rltk::MAGENTA),
+                    rltk::RGB::named(rltk::BLACK),
+                    rltk::to_cp437('?'),
+                    300.0,
+                );
             }
 
             if can_act {

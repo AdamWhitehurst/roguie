@@ -1,7 +1,7 @@
 use super::{
-    CombatStats, DefenseBonus, Equipped, GameLog, MeleePowerBonus, Name, SufferDamage, WantsToMelee,
+    gamelog::GameLog, particle_system::ParticleBuilder, CombatStats, DefenseBonus, Equipped,
+    MeleePowerBonus, Name, Position, SufferDamage, WantsToMelee,
 };
-use rltk::console;
 use specs::prelude::*;
 
 pub struct MeleeCombatSystem {}
@@ -17,6 +17,8 @@ impl<'a> System<'a> for MeleeCombatSystem {
         ReadStorage<'a, MeleePowerBonus>,
         ReadStorage<'a, DefenseBonus>,
         ReadStorage<'a, Equipped>,
+        WriteExpect<'a, ParticleBuilder>,
+        ReadStorage<'a, Position>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -26,12 +28,13 @@ impl<'a> System<'a> for MeleeCombatSystem {
             mut wants_melee,
             names,
             combat_stats,
-            mut damage_store,
+            mut inflict_damage,
             melee_power_bonuses,
             defense_bonuses,
             equipped,
+            mut particle_builder,
+            positions,
         ) = data;
-
         for (entity, wants_melee, name, stats) in
             (&entities, &wants_melee, &names, &combat_stats).join()
         {
@@ -68,6 +71,20 @@ impl<'a> System<'a> for MeleeCombatSystem {
                                 }
                             }
 
+                            let pos = positions.get(wants_melee.target);
+
+                            // ADd a particle effect to the targets position
+                            if let Some(pos) = pos {
+                                particle_builder.request(
+                                    pos.x,
+                                    pos.y,
+                                    rltk::RGB::named(rltk::ORANGE),
+                                    rltk::RGB::named(rltk::BLACK),
+                                    rltk::to_cp437('‼'),
+                                    200.0,
+                                );
+                            }
+
                             let damage = i32::max(
                                 0,
                                 (stats.power + offensive_bonus)
@@ -85,7 +102,7 @@ impl<'a> System<'a> for MeleeCombatSystem {
                                     &name.name, &target_name.name, damage
                                 ));
                                 SufferDamage::new_damage(
-                                    &mut damage_store,
+                                    &mut inflict_damage,
                                     wants_melee.target,
                                     damage,
                                 );

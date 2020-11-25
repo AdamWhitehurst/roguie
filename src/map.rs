@@ -285,19 +285,19 @@ fn wall_glyph(map: &Map, x: i32, y: i32) -> rltk::FontCharType {
     // e.g. 3 implies walls to north and south
     let mut mask: u8 = 0;
     // North
-    if is_revealed_and_wall(map, x, y - 1) {
+    if is_wall(map, x, y - 1) {
         mask += 1;
     }
     // South
-    if is_revealed_and_wall(map, x, y + 1) {
+    if is_wall(map, x, y + 1) {
         mask += 2;
     }
     // West
-    if is_revealed_and_wall(map, x - 1, y) {
+    if is_wall(map, x - 1, y) {
         mask += 4;
     }
     // East
-    if is_revealed_and_wall(map, x + 1, y) {
+    if is_wall(map, x + 1, y) {
         mask += 8;
     }
 
@@ -327,4 +327,8 @@ fn wall_glyph(map: &Map, x: i32, y: i32) -> rltk::FontCharType {
 fn is_revealed_and_wall(map: &Map, x: i32, y: i32) -> bool {
     let idx = map.xy_idx(x, y);
     map.tiles[idx] == TileType::Wall && map.revealed_tiles[idx]
+}
+fn is_wall(map: &Map, x: i32, y: i32) -> bool {
+    let idx = map.xy_idx(x, y);
+    map.tiles[idx] == TileType::Wall
 }

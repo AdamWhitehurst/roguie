@@ -1,7 +1,7 @@
 use super::{
     gamelog::GameLog, AreaOfEffect, CombatStats, Confusion, Consumable, Equippable, Equipped,
-    InBackpack, InflictsDamage, Map, Name, Position, ProvidesHealing, SufferDamage,
-    WantsToDropItem, WantsToPickupItem, WantsToRemoveItem, WantsToUseItem,
+    InBackpack, InflictsDamage, Map, Name, ParticleBuilder, Position, ProvidesHealing,
+    SufferDamage, WantsToDropItem, WantsToPickupItem, WantsToRemoveItem, WantsToUseItem,
 };
 use specs::prelude::*;
 
@@ -66,8 +66,11 @@ impl<'a> System<'a> for ItemUseSystem {
         ReadStorage<'a, Equippable>,
         WriteStorage<'a, Equipped>,
         WriteStorage<'a, InBackpack>,
+        WriteExpect<'a, ParticleBuilder>,
+        ReadStorage<'a, Position>,
     );
 
+    #[allow(clippy::cognitive_complexity)]
     fn run(&mut self, data: Self::SystemData) {
         let (
             player_entity,
@@ -86,6 +89,8 @@ impl<'a> System<'a> for ItemUseSystem {
             equippables,
             mut equipped_store,
             mut in_backpack_store,
+            mut particle_builder,
+            positions,
         ) = data;
 
         for (entity, useitem) in (&entities, &wants_use).join() {
@@ -116,9 +121,21 @@ impl<'a> System<'a> for ItemUseSystem {
                             });
                             for tile_idx in blast_tiles.iter() {
                                 let idx = map.xy_idx(tile_idx.x, tile_idx.y);
+
                                 for mob in map.tile_content[idx].iter() {
                                     targets.push(*mob);
                                 }
+
+                                // Add a particle effect to each tile in the AoE
+                                // to indicate where the AoE hit
+                                particle_builder.request(
+                                    tile_idx.x,
+                                    tile_idx.y,
+                                    rltk::RGB::named(rltk::ORANGE),
+                                    rltk::RGB::named(rltk::BLACK),
+                                    rltk::to_cp437('░'),
+                                    200.0,
+                                );
                             }
                         }
                     }
@@ -189,6 +206,18 @@ impl<'a> System<'a> for ItemUseSystem {
                                 healer.heal_amount
                             ));
                         }
+                        // Add a heart particle effect
+                        let pos = positions.get(*target);
+                        if let Some(pos) = pos {
+                            particle_builder.request(
+                                pos.x,
+                                pos.y,
+                                rltk::RGB::named(rltk::GREEN),
+                                rltk::RGB::named(rltk::BLACK),
+                                rltk::to_cp437('♥'),
+                                200.0,
+                            );
+                        }
                         used_item = true;
                     }
                 }
@@ -209,6 +238,18 @@ impl<'a> System<'a> for ItemUseSystem {
                         ));
                     }
 
+                    // Add a damage particle effect
+                    let pos = positions.get(*mob);
+                    if let Some(pos) = pos {
+                        particle_builder.request(
+                            pos.x,
+                            pos.y,
+                            rltk::RGB::named(rltk::RED),
+                            rltk::RGB::named(rltk::BLACK),
+                            rltk::to_cp437('‼'),
+                            200.0,
+                        );
+                    }
                     used_item = true;
                 }
             }
@@ -228,6 +269,19 @@ impl<'a> System<'a> for ItemUseSystem {
                                 "You use {} on {}, confusing them.",
                                 item_name.name, mob_name.name
                             ));
+
+                            // Add a confused particle effect
+                            let pos = positions.get(*mob);
+                            if let Some(pos) = pos {
+                                particle_builder.request(
+                                    pos.x,
+                                    pos.y,
+                                    rltk::RGB::named(rltk::MAGENTA),
+                                    rltk::RGB::named(rltk::BLACK),
+                                    rltk::to_cp437('?'),
+                                    200.0,
+                                );
+                            }
                             used_item = true;
                         }
                     }

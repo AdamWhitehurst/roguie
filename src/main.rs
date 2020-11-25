@@ -33,6 +33,8 @@ mod inventory_system;
 pub use inventory_system::*;
 mod random_table;
 pub use random_table::*;
+mod particle_system;
+pub use particle_system::*;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum RunState {
@@ -76,6 +78,7 @@ impl GameState for State {
         let mut newrunstate = *(self.ecs.fetch::<RunState>());
 
         ctx.cls();
+        particle_system::cull_dead_particles(&mut self.ecs, ctx);
         // Handle drawing screen based on whether state is in-game or not
         match newrunstate {
             // Draw Main Menu screen
@@ -286,6 +289,8 @@ impl State {
         drop_items.run_now(&self.ecs);
         let mut item_remove = ItemRemoveSystem {};
         item_remove.run_now(&self.ecs);
+        let mut particles = particle_system::ParticleSpawnSystem {};
+        particles.run_now(&self.ecs);
 
         self.ecs.maintain();
     }
@@ -451,6 +456,8 @@ fn main() -> rltk::BError {
 
     gs.ecs.insert(SimpleMarkerAllocator::<SerializeMe>::new());
 
+    gs.ecs.insert(particle_system::ParticleBuilder::new());
+
     // Registration order must match save/load order!
     gs.ecs.register::<Position>();
     gs.ecs.register::<Name>();
@@ -480,6 +487,7 @@ fn main() -> rltk::BError {
     gs.ecs.register::<MeleePowerBonus>();
     gs.ecs.register::<DefenseBonus>();
     gs.ecs.register::<WantsToRemoveItem>();
+    gs.ecs.register::<ParticleLifetime>();
 
     gs.init_game();
 
