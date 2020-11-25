@@ -1,5 +1,5 @@
 #![allow(unused_variables)]
-use rltk::{GameState, Point, Rltk};
+use rltk::{console, GameState, Point, Rltk};
 use specs::prelude::*;
 use specs::saveload::{SimpleMarker, SimpleMarkerAllocator};
 

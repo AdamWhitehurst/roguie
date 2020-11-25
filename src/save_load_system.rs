@@ -132,7 +132,8 @@ where
         Equipped,
         MeleePowerBonus,
         DefenseBonus,
-        WantsToRemoveItem
+        WantsToRemoveItem,
+        ParticleLifetime
     );
 }
 
