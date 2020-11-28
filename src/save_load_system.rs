@@ -87,7 +87,9 @@ where
         MeleePowerBonus,
         DefenseBonus,
         WantsToRemoveItem,
-        ParticleLifetime
+        ParticleLifetime,
+        HungerClock,
+        ProvidesFood
     );
 }
 
@@ -133,7 +135,9 @@ where
         MeleePowerBonus,
         DefenseBonus,
         WantsToRemoveItem,
-        ParticleLifetime
+        ParticleLifetime,
+        HungerClock,
+        ProvidesFood
     );
 }
 

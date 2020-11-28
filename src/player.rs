@@ -1,6 +1,6 @@
 use super::{
     CombatStats, GameLog, Item, Map, MonsterAI, Player, Position, RunState, State, TileType,
-    Viewshed, WantsToMelee, WantsToPickupItem,
+    Viewshed, WantsToMelee, WantsToPickupItem, HungerClock, HungerState
 };
 use rltk::{Point, Rltk, VirtualKeyCode};
 use specs::prelude::*;
@@ -190,6 +190,16 @@ fn skip_turn(ecs: &mut World) -> RunState {
             }
         }
     }
+    
+    let hunger_clocks = ecs.read_storage::<HungerClock>();
+let hc = hunger_clocks.get(*player_entity);
+if let Some(hc) = hc {
+    match hc.state {
+        HungerState::Hungry => can_heal = false,
+        HungerState::Starving => can_heal = false,
+        _ => {}
+    }
+}
 
     if can_heal {
         let mut health_components = ecs.write_storage::<CombatStats>();

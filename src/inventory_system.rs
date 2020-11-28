@@ -1,7 +1,7 @@
 use super::{
     gamelog::GameLog, AreaOfEffect, CombatStats, Confusion, Consumable, Equippable, Equipped,
     InBackpack, InflictsDamage, Map, Name, ParticleBuilder, Position, ProvidesHealing,
-    SufferDamage, WantsToDropItem, WantsToPickupItem, WantsToRemoveItem, WantsToUseItem,
+    SufferDamage, WantsToDropItem, WantsToPickupItem, WantsToRemoveItem, WantsToUseItem, ProvidesFood, HungerClock, HungerState
 };
 use specs::prelude::*;
 
@@ -68,6 +68,8 @@ impl<'a> System<'a> for ItemUseSystem {
         WriteStorage<'a, InBackpack>,
         WriteExpect<'a, ParticleBuilder>,
         ReadStorage<'a, Position>,
+        ReadStorage<'a, ProvidesFood>,
+        WriteStorage<'a, HungerClock>,
     );
 
     #[allow(clippy::cognitive_complexity)]
@@ -91,6 +93,8 @@ impl<'a> System<'a> for ItemUseSystem {
             mut in_backpack_store,
             mut particle_builder,
             positions,
+            provides_food,
+            mut hunger_clocks
         ) = data;
 
         for (entity, useitem) in (&entities, &wants_use).join() {
@@ -253,6 +257,22 @@ impl<'a> System<'a> for ItemUseSystem {
                     used_item = true;
                 }
             }
+
+            // It it is edible, eat it!
+let item_edible = provides_food.get(useitem.item);
+match item_edible {
+    None => {}
+    Some(_) => {
+        used_item = true;
+        let target = targets[0];
+        let hc = hunger_clocks.get_mut(target);
+        if let Some(hc) = hc {
+            hc.state = HungerState::WellFed;
+            hc.duration = 20;
+            gamelog.entries.push(format!("You eat the {}.", names.get(useitem.item).unwrap().name));
+        }
+    }
+}
 
             // Can it pass along confusion?
             let mut add_confusion = Vec::new();
