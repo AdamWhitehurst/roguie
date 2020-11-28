@@ -1,7 +1,10 @@
+use crate::MagicMapper;
+
 use super::{
     gamelog::GameLog, AreaOfEffect, CombatStats, Confusion, Consumable, Equippable, Equipped,
-    InBackpack, InflictsDamage, Map, Name, ParticleBuilder, Position, ProvidesHealing,
-    SufferDamage, WantsToDropItem, WantsToPickupItem, WantsToRemoveItem, WantsToUseItem, ProvidesFood, HungerClock, HungerState
+    HungerClock, HungerState, InBackpack, InflictsDamage, Map, Name, ParticleBuilder, Position,
+    ProvidesFood, ProvidesHealing, RunState, SufferDamage, WantsToDropItem, WantsToPickupItem,
+    WantsToRemoveItem, WantsToUseItem,
 };
 use specs::prelude::*;
 
@@ -53,6 +56,7 @@ impl<'a> System<'a> for ItemUseSystem {
         ReadExpect<'a, Entity>,
         WriteExpect<'a, GameLog>,
         ReadExpect<'a, Map>,
+        WriteExpect<'a, RunState>,
         Entities<'a>,
         WriteStorage<'a, WantsToUseItem>,
         ReadStorage<'a, Name>,
@@ -70,6 +74,7 @@ impl<'a> System<'a> for ItemUseSystem {
         ReadStorage<'a, Position>,
         ReadStorage<'a, ProvidesFood>,
         WriteStorage<'a, HungerClock>,
+        ReadStorage<'a, MagicMapper>,
     );
 
     #[allow(clippy::cognitive_complexity)]
@@ -78,6 +83,7 @@ impl<'a> System<'a> for ItemUseSystem {
             player_entity,
             mut gamelog,
             map,
+            mut runstate,
             entities,
             mut wants_use,
             names,
@@ -94,11 +100,25 @@ impl<'a> System<'a> for ItemUseSystem {
             mut particle_builder,
             positions,
             provides_food,
-            mut hunger_clocks
+            mut hunger_clocks,
+            magic_mapper,
         ) = data;
 
         for (entity, useitem) in (&entities, &wants_use).join() {
             let mut used_item = true;
+
+            // If its a magic mapper...
+            let is_mapper = magic_mapper.get(useitem.item);
+            match is_mapper {
+                None => {}
+                Some(_) => {
+                    used_item = true;
+                    gamelog
+                        .entries
+                        .push("The map is revealed to you!".to_string());
+                    *runstate = RunState::MagicMapReveal { row: 0 };
+                }
+            }
 
             // Targeting
             let mut targets: Vec<Entity> = Vec::new();
@@ -259,20 +279,23 @@ impl<'a> System<'a> for ItemUseSystem {
             }
 
             // It it is edible, eat it!
-let item_edible = provides_food.get(useitem.item);
-match item_edible {
-    None => {}
-    Some(_) => {
-        used_item = true;
-        let target = targets[0];
-        let hc = hunger_clocks.get_mut(target);
-        if let Some(hc) = hc {
-            hc.state = HungerState::WellFed;
-            hc.duration = 20;
-            gamelog.entries.push(format!("You eat the {}.", names.get(useitem.item).unwrap().name));
-        }
-    }
-}
+            let item_edible = provides_food.get(useitem.item);
+            match item_edible {
+                None => {}
+                Some(_) => {
+                    used_item = true;
+                    let target = targets[0];
+                    let hc = hunger_clocks.get_mut(target);
+                    if let Some(hc) = hc {
+                        hc.state = HungerState::WellFed;
+                        hc.duration = 20;
+                        gamelog.entries.push(format!(
+                            "You eat the {}.",
+                            names.get(useitem.item).unwrap().name
+                        ));
+                    }
+                }
+            }
 
             // Can it pass along confusion?
             let mut add_confusion = Vec::new();

@@ -69,6 +69,8 @@ pub enum RunState {
     ShowRemoveItem,
     /// Player has lost
     GameOver,
+    /// Player has revealed the map
+    MagicMapReveal { row: i32 },
 }
 
 pub struct State {
@@ -117,7 +119,11 @@ impl GameState for State {
 
             RunState::PlayerTurn => {
                 self.run_systems();
-                RunState::MonsterTurn
+                self.ecs.maintain();
+                match *self.ecs.fetch::<RunState>() {
+                    RunState::MagicMapReveal { .. } => RunState::MagicMapReveal { row: 0 },
+                    _ => RunState::MonsterTurn,
+                }
             }
 
             RunState::MonsterTurn => {
@@ -260,6 +266,19 @@ impl GameState for State {
                     }
                 }
             }
+
+            RunState::MagicMapReveal { row } => {
+                let mut map = self.ecs.fetch_mut::<Map>();
+                for x in 0..MAP_WIDTH {
+                    let idx = map.xy_idx(x as i32, row);
+                    map.revealed_tiles[idx] = true;
+                }
+                if row as usize == MAP_HEIGHT - 1 {
+                    RunState::MonsterTurn
+                } else {
+                    RunState::MagicMapReveal { row: row + 1 }
+                }
+            }
         };
 
         {
@@ -293,7 +312,6 @@ impl State {
         item_remove.run_now(&self.ecs);
         let mut hunger_system = hunger_system::HungerSystem {};
         hunger_system.run_now(&self.ecs);
-
 
         let mut particles = particle_system::ParticleSpawnSystem {};
         particles.run_now(&self.ecs);
@@ -496,6 +514,7 @@ fn main() -> rltk::BError {
     gs.ecs.register::<HungerClock>();
     gs.ecs.register::<ProvidesFood>();
     gs.ecs.register::<ParticleLifetime>();
+    gs.ecs.register::<MagicMapper>();
 
     gs.init_game();
 

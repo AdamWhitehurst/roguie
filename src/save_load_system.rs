@@ -89,7 +89,8 @@ where
         WantsToRemoveItem,
         ParticleLifetime,
         HungerClock,
-        ProvidesFood
+        ProvidesFood,
+        MagicMapper
     );
 }
 
@@ -137,7 +138,8 @@ where
         WantsToRemoveItem,
         ParticleLifetime,
         HungerClock,
-        ProvidesFood
+        ProvidesFood,
+        MagicMapper
     );
 }
 
