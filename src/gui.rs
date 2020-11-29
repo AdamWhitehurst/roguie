@@ -1,7 +1,7 @@
 extern crate serde;
 use super::{
-    CombatStats, Equipped, GameLog, InBackpack, Map, Name, Player, Position, RunState, State,
-    Viewshed, HungerClock, HungerState
+    CombatStats, Equipped, GameLog, HungerClock, HungerState, InBackpack, Map, Name, Player,
+    Position, RexAssets, RunState, State, Viewshed,
 };
 use rltk::{Point, Rltk, VirtualKeyCode, RGB};
 use specs::prelude::*;
@@ -54,12 +54,30 @@ pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
             RGB::named(rltk::RED),
             RGB::named(rltk::BLACK),
         );
-        
-match hc.state {
-            HungerState::WellFed => ctx.print_color(71, 42, RGB::named(rltk::GREEN), RGB::named(rltk::BLACK), "Well Fed"),
+
+        match hc.state {
+            HungerState::WellFed => ctx.print_color(
+                71,
+                42,
+                RGB::named(rltk::GREEN),
+                RGB::named(rltk::BLACK),
+                "Well Fed",
+            ),
             HungerState::Normal => {}
-            HungerState::Hungry => ctx.print_color(71, 42, RGB::named(rltk::ORANGE), RGB::named(rltk::BLACK), "Hungry"),
-            HungerState::Starving => ctx.print_color(71, 42, RGB::named(rltk::RED), RGB::named(rltk::BLACK), "Starving"),
+            HungerState::Hungry => ctx.print_color(
+                71,
+                42,
+                RGB::named(rltk::ORANGE),
+                RGB::named(rltk::BLACK),
+                "Hungry",
+            ),
+            HungerState::Starving => ctx.print_color(
+                71,
+                42,
+                RGB::named(rltk::RED),
+                RGB::named(rltk::BLACK),
+                "Starving",
+            ),
         }
     }
 
@@ -435,22 +453,51 @@ pub fn main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
     let save_exists = super::does_save_exist();
     let can_quit = super::can_quit_game();
 
+    // Render the menu background
+    let assets = gs.ecs.fetch::<RexAssets>();
+    ctx.render_xp_sprite(&assets.menu, 0, 0);
+    ctx.draw_box_double(
+        24,
+        18,
+        31,
+        10,
+        RGB::named(rltk::WHEAT),
+        RGB::named(rltk::BLACK),
+    );
     ctx.print_color_centered(
-        15,
+        20,
         RGB::named(rltk::YELLOW),
         RGB::named(rltk::BLACK),
-        "Roguie",
+        "Roguies",
     );
+    ctx.print_color_centered(
+        21,
+        RGB::named(rltk::CYAN),
+        RGB::named(rltk::BLACK),
+        "by Adam Whitehurst",
+    );
+    ctx.print_color_centered(
+        22,
+        RGB::named(rltk::GRAY),
+        RGB::named(rltk::BLACK),
+        "Use Up/Down Arrows and Enter",
+    );
+
+    // Keep an index of the y position to render options without gaps,
+    // such as in cases that save game isn't found
+    let mut y = 24;
 
     if let RunState::MainMenu {
         menu_selection: selection,
     } = *runstate
     {
+        // Option foreground text colors
         let mut rg_fg = RGB::named(rltk::WHITE);
         let mut ng_fg = RGB::named(rltk::WHITE);
         let mut lg_fg = RGB::named(rltk::WHITE);
         let mut q_fg = RGB::named(rltk::WHITE);
 
+        // Highlight the currently selected option in magenta
         match selection {
             MainMenuSelection::ResumeGame => rg_fg = RGB::named(rltk::MAGENTA),
             MainMenuSelection::NewGame => ng_fg = RGB::named(rltk::MAGENTA),
@@ -458,14 +505,18 @@ pub fn main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
             MainMenuSelection::Quit => q_fg = RGB::named(rltk::MAGENTA),
         }
 
-        ctx.print_color_centered(23, rg_fg, RGB::named(rltk::BLACK), "Resume Game");
-        ctx.print_color_centered(24, ng_fg, RGB::named(rltk::BLACK), "Begin New Game");
+        ctx.print_color_centered(y, rg_fg, RGB::named(rltk::BLACK), "Resume Game");
+        y += 1;
+        ctx.print_color_centered(y, ng_fg, RGB::named(rltk::BLACK), "Begin New Game");
+        y += 1;
 
         if save_exists {
-            ctx.print_color_centered(25, lg_fg, RGB::named(rltk::BLACK), "Load Game");
+            ctx.print_color_centered(y, lg_fg, RGB::named(rltk::BLACK), "Load Game");
+            y += 1;
         }
         if can_quit {
-            ctx.print_color_centered(26, q_fg, RGB::named(rltk::BLACK), "Quit");
+            ctx.print_color_centered(y, q_fg, RGB::named(rltk::BLACK), "Quit");
+            y += 1;
         }
 
         match ctx.key {

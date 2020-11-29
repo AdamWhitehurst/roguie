@@ -37,6 +37,8 @@ mod particle_system;
 pub use particle_system::*;
 mod hunger_system;
 pub use hunger_system::*;
+mod rex_assets;
+pub use rex_assets::*;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum RunState {
@@ -282,6 +284,7 @@ impl GameState for State {
         };
 
         {
+            // Set new runstate
             let mut runwriter = self.ecs.write_resource::<RunState>();
             *runwriter = newrunstate;
         }
@@ -481,6 +484,7 @@ fn main() -> rltk::BError {
     gs.ecs.insert(SimpleMarkerAllocator::<SerializeMe>::new());
 
     gs.ecs.insert(particle_system::ParticleBuilder::new());
+    gs.ecs.insert(rex_assets::RexAssets::new());
 
     // Registration order must match save/load order!
     gs.ecs.register::<Position>();
