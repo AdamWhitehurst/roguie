@@ -7,7 +7,7 @@ use specs_derive::*;
 
 //TODO: Comments
 
-#[derive(Component, ConvertSaveload, Debug)]
+#[derive(Component, ConvertSaveload, Debug, Clone)]
 pub struct Position {
     pub x: i32,
     pub y: i32,

@@ -336,23 +336,33 @@ impl State {
     }
 
     fn init_game(&mut self) {
+        // Set up RunState resource
         self.ecs.insert(RunState::MainMenu {
             menu_selection: MainMenuSelection::NewGame,
         });
-        let (map, start) = map_builders::build_random_map(1);
 
+        // Build map and insertt resource
+        let mut builder = map_builders::random_builder(1);
+        builder.build_map();
+        self.ecs.insert(builder.get_map());
+
+        // Place player point resource
+        let start = builder.get_starting_position();
         let (player_x, player_y) = (start.x, start.y);
+        self.ecs.insert(Point::new(player_x, player_y));
+
+        // Spawn player entity
         let player_entity = spawner::player(&mut self.ecs, player_x, player_y);
         self.ecs.insert(player_entity);
 
+        // Init seed RNG
         let rng = rltk::RandomNumberGenerator::new();
         self.ecs.insert(rng);
+
+        // Init the GameLog
         self.ecs.insert(GameLog {
             entries: vec!["Welcome to Roguie!".to_string()],
         });
-        self.ecs.insert(Point::new(player_x, player_y));
-
-        self.ecs.insert(map);
     }
 
     /// Returns a vec of all Entities to delete. This includes non-players, and
@@ -406,22 +416,22 @@ impl State {
         }
 
         // Build a new map and place the player
+        let mut builder;
         let worldmap;
         let current_depth;
         let player_start;
         {
             let mut worldmap_resource = self.ecs.write_resource::<Map>();
             current_depth = worldmap_resource.depth;
-            let (map, start) = map_builders::build_random_map(current_depth + 1);
-            *worldmap_resource = map;
+            builder = map_builders::random_builder(current_depth + 1);
+            builder.build_map();
+            *worldmap_resource = builder.get_map();
+            player_start = builder.get_starting_position();
             worldmap = worldmap_resource.clone();
-            player_start = start;
         }
 
         // Spawn bad guys
-        for room in worldmap.rooms.iter().skip(1) {
-            spawner::fill_room(&mut self.ecs, room, current_depth + 1);
-        }
+        builder.spawn_entities(&mut self.ecs);
 
         // Place the player and update resources
         let mut player_position = self.ecs.write_resource::<Point>();
@@ -463,21 +473,23 @@ impl State {
             self.ecs.delete_entity(*del).expect("Deletion failed");
         }
 
-        // Build a new map and place the player
+        // Build a new map
+        let mut builder;
         let worldmap;
+        let current_depth;
         let player_start;
         {
             let mut worldmap_resource = self.ecs.write_resource::<Map>();
-            let (map, start) = map_builders::build_random_map(1);
-            *worldmap_resource = map;
+            current_depth = worldmap_resource.depth;
+            builder = map_builders::random_builder(current_depth + 1);
+            builder.build_map();
+            *worldmap_resource = builder.get_map();
+            player_start = builder.get_starting_position();
             worldmap = worldmap_resource.clone();
-            player_start = start;
         }
 
         // Spawn bad guys
-        for room in worldmap.rooms.iter().skip(1) {
-            spawner::fill_room(&mut self.ecs, room, 1);
-        }
+        builder.spawn_entities(&mut self.ecs);
 
         // Place the player and update resources
         let (player_x, player_y) = (player_start.x, player_start.y);
