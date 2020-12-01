@@ -5,6 +5,8 @@ use specs::saveload::ConvertSaveload;
 use specs::{prelude::*, saveload::Marker};
 use specs_derive::*;
 
+//TODO: Comments
+
 #[derive(Component, ConvertSaveload, Debug)]
 pub struct Position {
     pub x: i32,
@@ -200,3 +202,16 @@ pub struct ProvidesFood {}
 
 #[derive(Component, Debug, Serialize, Deserialize, Clone)]
 pub struct MagicMapper {}
+
+#[derive(Component, Debug, Serialize, Deserialize, Clone)]
+pub struct Hidden {}
+
+#[derive(Component, Debug, Serialize, Deserialize, Clone)]
+pub struct EntryTrigger {}
+
+#[derive(Component, Debug, Serialize, Deserialize, Clone)]
+pub struct EntityMoved {}
+
+// Tells trigger system to only apply `InflictsDamage` effect once
+#[derive(Component, Debug, Serialize, Deserialize, Clone)]
+pub struct SingleActivation {}

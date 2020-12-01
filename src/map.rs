@@ -324,10 +324,11 @@ fn wall_glyph(map: &Map, x: i32, y: i32) -> rltk::FontCharType {
     }
 }
 
-fn is_revealed_and_wall(map: &Map, x: i32, y: i32) -> bool {
-    let idx = map.xy_idx(x, y);
-    map.tiles[idx] == TileType::Wall && map.revealed_tiles[idx]
-}
+// fn is_revealed_and_wall(map: &Map, x: i32, y: i32) -> bool {
+//     let idx = map.xy_idx(x, y);
+//     map.tiles[idx] == TileType::Wall && map.revealed_tiles[idx]
+// }
+
 fn is_wall(map: &Map, x: i32, y: i32) -> bool {
     let idx = map.xy_idx(x, y);
     map.tiles[idx] == TileType::Wall

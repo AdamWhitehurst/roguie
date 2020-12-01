@@ -1,6 +1,6 @@
 use super::{
-    CombatStats, GameLog, Item, Map, MonsterAI, Player, Position, RunState, State, TileType,
-    Viewshed, WantsToMelee, WantsToPickupItem, HungerClock, HungerState
+    CombatStats, EntityMoved, GameLog, HungerClock, HungerState, Item, Map, MonsterAI, Player,
+    Position, RunState, State, TileType, Viewshed, WantsToMelee, WantsToPickupItem,
 };
 use rltk::{Point, Rltk, VirtualKeyCode};
 use specs::prelude::*;
@@ -12,13 +12,14 @@ pub fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
     let mut viewsheds = ecs.write_storage::<Viewshed>();
     let entities = ecs.entities();
     let combat_stats = ecs.read_storage::<CombatStats>();
+    let mut entity_moved = ecs.write_storage::<EntityMoved>();
     let map = ecs.fetch::<Map>();
     let mut wants_to_melee = ecs.write_storage::<WantsToMelee>();
 
     for (entity, _player, pos, viewshed) in
         (&entities, &players, &mut positions, &mut viewsheds).join()
     {
-        if pos.x + delta_x < 1
+        if pos.x + delta_x < 0
             || pos.x + delta_x > map.width - 1
             || pos.y + delta_y < 1
             || pos.y + delta_y > map.height - 1
@@ -50,6 +51,11 @@ pub fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
             let mut ppos = ecs.write_resource::<Point>();
             ppos.x = pos.x;
             ppos.y = pos.y;
+
+            // Add a tag that player moved
+            entity_moved
+                .insert(entity, EntityMoved {})
+                .expect("Unable to insert EntityMoved on player");
         }
     }
 }
@@ -190,16 +196,16 @@ fn skip_turn(ecs: &mut World) -> RunState {
             }
         }
     }
-    
+
     let hunger_clocks = ecs.read_storage::<HungerClock>();
-let hc = hunger_clocks.get(*player_entity);
-if let Some(hc) = hc {
-    match hc.state {
-        HungerState::Hungry => can_heal = false,
-        HungerState::Starving => can_heal = false,
-        _ => {}
+    let hc = hunger_clocks.get(*player_entity);
+    if let Some(hc) = hc {
+        match hc.state {
+            HungerState::Hungry => can_heal = false,
+            HungerState::Starving => can_heal = false,
+            _ => {}
+        }
     }
-}
 
     if can_heal {
         let mut health_components = ecs.write_storage::<CombatStats>();

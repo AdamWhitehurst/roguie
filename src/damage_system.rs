@@ -1,5 +1,4 @@
 use super::{CombatStats, GameLog, Map, Name, Player, Position, RunState, SufferDamage};
-use rltk::console;
 use specs::prelude::*;
 
 pub struct DamageSystem {}

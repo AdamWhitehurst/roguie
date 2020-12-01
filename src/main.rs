@@ -1,5 +1,5 @@
 #![allow(unused_variables)]
-use rltk::{console, GameState, Point, Rltk};
+use rltk::{GameState, Point, Rltk};
 use specs::prelude::*;
 use specs::saveload::{SimpleMarker, SimpleMarkerAllocator};
 
@@ -26,7 +26,9 @@ pub use gamelog::*;
 mod rect;
 pub use rect::Rect;
 mod visibility_system;
-pub use visibility_system::VisibilitySystem;
+pub use visibility_system::*;
+mod trigger_system;
+pub use trigger_system::*;
 mod spawner;
 pub use spawner::*;
 mod inventory_system;
@@ -96,11 +98,14 @@ impl GameState for State {
                 {
                     let positions = self.ecs.read_storage::<Position>();
                     let renderables = self.ecs.read_storage::<Renderable>();
+                    let hidden = self.ecs.read_storage::<Hidden>();
                     let map = self.ecs.fetch::<Map>();
 
-                    let mut data = (&positions, &renderables).join().collect::<Vec<_>>();
+                    let mut data = (&positions, &renderables, !&hidden)
+                        .join()
+                        .collect::<Vec<_>>();
                     data.sort_by(|&a, &b| b.1.render_order.cmp(&a.1.render_order));
-                    for (pos, render) in data.iter() {
+                    for (pos, render, _) in data.iter() {
                         let idx = map.xy_idx(pos.x, pos.y);
                         if map.visible_tiles[idx] {
                             ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph)
@@ -234,7 +239,14 @@ impl GameState for State {
                     },
                     gui::MainMenuResult::Selected { selected } => match selected {
                         gui::MainMenuSelection::ResumeGame => RunState::AwaitingInput,
-                        gui::MainMenuSelection::NewGame => RunState::PreRun,
+                        gui::MainMenuSelection::NewGame => {
+                            self.game_over_cleanup();
+
+                            RunState::MainMenu {
+                                menu_selection: gui::MainMenuSelection::NewGame,
+                            }
+                        }
+                        gui::MainMenuSelection::SaveGame => RunState::SaveGame,
                         gui::MainMenuSelection::LoadGame => {
                             save_load_system::load_game(&mut self.ecs);
                             save_load_system::delete_save();
@@ -299,6 +311,10 @@ impl State {
         vis.run_now(&self.ecs);
         let mut mob = MonsterAISystem {};
         mob.run_now(&self.ecs);
+        // Triggers run after monster ai's update but before we apply
+        // possible damage
+        let mut triggers = TriggerSystem {};
+        triggers.run_now(&self.ecs);
         let mut mapindex = MapIndexingSystem {};
         mapindex.run_now(&self.ecs);
         let mut meleecombat = MeleeCombatSystem {};
@@ -313,17 +329,18 @@ impl State {
         drop_items.run_now(&self.ecs);
         let mut item_remove = ItemRemoveSystem {};
         item_remove.run_now(&self.ecs);
-        let mut hunger_system = hunger_system::HungerSystem {};
+        let mut hunger_system = HungerSystem {};
         hunger_system.run_now(&self.ecs);
-
-        let mut particles = particle_system::ParticleSpawnSystem {};
+        let mut particles = ParticleSpawnSystem {};
         particles.run_now(&self.ecs);
 
         self.ecs.maintain();
     }
 
     fn init_game(&mut self) {
-        self.ecs.insert(RunState::PreRun);
+        self.ecs.insert(RunState::MainMenu {
+            menu_selection: MainMenuSelection::NewGame,
+        });
         let map: Map = Map::new_map_rooms_and_corridors(1);
 
         let (player_x, player_y) = map.rooms[0].center();
@@ -477,7 +494,7 @@ fn main() -> rltk::BError {
     use rltk::RltkBuilder;
     let context = RltkBuilder::simple80x50()
         // .with_automatic_console_resize(true)
-        .with_title("Roguelike Tutorial")
+        .with_title("Roguies: ")
         .build()?;
     let mut gs = State { ecs: World::new() };
 
@@ -519,6 +536,10 @@ fn main() -> rltk::BError {
     gs.ecs.register::<ProvidesFood>();
     gs.ecs.register::<ParticleLifetime>();
     gs.ecs.register::<MagicMapper>();
+    gs.ecs.register::<Hidden>();
+    gs.ecs.register::<EntryTrigger>();
+    gs.ecs.register::<EntityMoved>();
+    gs.ecs.register::<SingleActivation>();
 
     gs.init_game();
 

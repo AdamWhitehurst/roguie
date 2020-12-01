@@ -1,8 +1,9 @@
 use super::{
     random_table::*, AreaOfEffect, BlocksTile, CombatStats, Confusion, Consumable, DefenseBonus,
-    EquipmentSlot, Equippable, HungerClock, HungerState, InflictsDamage, Item, MagicMapper,
-    MeleePowerBonus, MonsterAI, Name, Player, Position, ProvidesFood, ProvidesHealing, Ranged,
-    Rect, Renderable, SerializeMe, SimpleMarker, Viewshed, MAP_WIDTH,
+    EntryTrigger, EquipmentSlot, Equippable, Hidden, HungerClock, HungerState, InflictsDamage,
+    Item, MagicMapper, MeleePowerBonus, MonsterAI, Name, Player, Position, ProvidesFood,
+    ProvidesHealing, Ranged, Rect, Renderable, SerializeMe, SimpleMarker, SingleActivation,
+    Viewshed, MAP_WIDTH,
 };
 use rltk::{RandomNumberGenerator, RGB};
 use specs::prelude::*;
@@ -10,6 +11,23 @@ use specs::saveload::MarkedBuilder;
 use std::collections::HashMap;
 
 const MAX_MONSTERS: i32 = 4;
+
+fn room_table(map_depth: i32) -> RandomTable {
+    RandomTable::new()
+        .add("Goblin", 10)
+        .add("Orc", 1 + map_depth)
+        .add("Health Potion", 7)
+        .add("Fireball Scroll", 2 + map_depth)
+        .add("Confusion Scroll", 2 + map_depth)
+        .add("Magic Missile Scroll", 4)
+        .add("Dagger", 3)
+        .add("Shield", 3)
+        .add("Longsword", map_depth - 1)
+        .add("Tower Shield", map_depth - 1)
+        .add("Rations", 10)
+        .add("Magic Mapping Scroll", 2)
+        .add("Bear Trap", 200)
+}
 
 /// Spawns the player and returns their entity object
 pub fn player(ecs: &mut World, player_x: i32, player_y: i32) -> Entity {
@@ -130,6 +148,7 @@ pub fn fill_room(ecs: &mut World, room: &Rect, map_depth: i32) {
             "Tower Shield" => tower_shield(ecs, x, y),
             "Rations" => rations(ecs, x, y),
             "Magic Mapping Scroll" => magic_mapping_scroll(ecs, x, y),
+            "Bear Trap" => bear_trap(ecs, x, y),
             _ => {}
         }
     }
@@ -215,22 +234,6 @@ fn confusion_scroll(ecs: &mut World, x: i32, y: i32) {
         .with(Confusion { turns: 4 })
         .marked::<SimpleMarker<SerializeMe>>()
         .build();
-}
-
-fn room_table(map_depth: i32) -> RandomTable {
-    RandomTable::new()
-        .add("Goblin", 10)
-        .add("Orc", 1 + map_depth)
-        .add("Health Potion", 7)
-        .add("Fireball Scroll", 2 + map_depth)
-        .add("Confusion Scroll", 2 + map_depth)
-        .add("Magic Missile Scroll", 4)
-        .add("Dagger", 3)
-        .add("Shield", 3)
-        .add("Longsword", map_depth - 1)
-        .add("Tower Shield", map_depth - 1)
-        .add("Rations", 10)
-        .add("Magic Mapping Scroll", 2)
 }
 
 fn dagger(ecs: &mut World, x: i32, y: i32) {
@@ -351,6 +354,26 @@ fn magic_mapping_scroll(ecs: &mut World, x: i32, y: i32) {
         .with(Item {})
         .with(MagicMapper {})
         .with(Consumable {})
+        .marked::<SimpleMarker<SerializeMe>>()
+        .build();
+}
+
+fn bear_trap(ecs: &mut World, x: i32, y: i32) {
+    ecs.create_entity()
+        .with(Position { x, y })
+        .with(Renderable {
+            glyph: rltk::to_cp437('^'),
+            fg: RGB::named(rltk::RED),
+            bg: RGB::named(rltk::BLACK),
+            render_order: 2,
+        })
+        .with(Hidden {})
+        .with(Name {
+            name: "Bear Trap".to_string(),
+        })
+        .with(EntryTrigger {})
+        .with(InflictsDamage { damage: 6 })
+        .with(SingleActivation {})
         .marked::<SimpleMarker<SerializeMe>>()
         .build();
 }

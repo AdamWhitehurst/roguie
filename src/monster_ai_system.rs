@@ -1,7 +1,8 @@
 use super::{
-    Confusion, Map, MonsterAI, ParticleBuilder, Position, RunState, Viewshed, WantsToMelee,
+    Confusion, EntityMoved, Map, MonsterAI, ParticleBuilder, Position, RunState, Viewshed,
+    WantsToMelee,
 };
-use rltk::{console, field_of_view, Point};
+use rltk::Point;
 use specs::prelude::*;
 
 pub struct MonsterAISystem {}
@@ -10,6 +11,7 @@ impl<'a> System<'a> for MonsterAISystem {
     #[allow(clippy::type_complexity)]
     type SystemData = (
         WriteExpect<'a, Map>,
+        WriteStorage<'a, EntityMoved>,
         ReadExpect<'a, Point>,
         ReadExpect<'a, Entity>,
         ReadExpect<'a, RunState>,
@@ -25,6 +27,7 @@ impl<'a> System<'a> for MonsterAISystem {
     fn run(&mut self, data: Self::SystemData) {
         let (
             mut map,
+            mut entity_moved,
             player_pt,
             player_entity,
             runstate,
@@ -95,6 +98,10 @@ impl<'a> System<'a> for MonsterAISystem {
                             pos.x = path.steps[1] as i32 % map.width;
                             pos.y = path.steps[1] as i32 / map.width;
                             viewshed.dirty = true;
+                            // Add a tag that monster moved
+                            entity_moved
+                                .insert(entity, EntityMoved {})
+                                .expect("Unable to insert EntityMoved on monster entity");
                         }
                     }
                 }

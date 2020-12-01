@@ -90,7 +90,11 @@ where
         ParticleLifetime,
         HungerClock,
         ProvidesFood,
-        MagicMapper
+        MagicMapper,
+        Hidden,
+        EntryTrigger,
+        EntityMoved,
+        SingleActivation
     );
 }
 
@@ -139,7 +143,11 @@ where
         ParticleLifetime,
         HungerClock,
         ProvidesFood,
-        MagicMapper
+        MagicMapper,
+        Hidden,
+        EntryTrigger,
+        EntityMoved,
+        SingleActivation
     );
 }
 

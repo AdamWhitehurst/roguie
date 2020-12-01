@@ -1,7 +1,7 @@
 extern crate serde;
 use super::{
-    CombatStats, Equipped, GameLog, HungerClock, HungerState, InBackpack, Map, Name, Player,
-    Position, RexAssets, RunState, State, Viewshed,
+    CombatStats, Equipped, GameLog, Hidden, HungerClock, HungerState, InBackpack, Map, Name,
+    Player, Position, RexAssets, RunState, State, Viewshed,
 };
 use rltk::{Point, Rltk, VirtualKeyCode, RGB};
 use specs::prelude::*;
@@ -9,6 +9,7 @@ use specs::prelude::*;
 #[derive(PartialEq, Copy, Clone)]
 pub enum MainMenuSelection {
     ResumeGame,
+    SaveGame,
     NewGame,
     LoadGame,
     Quit,
@@ -109,6 +110,7 @@ fn draw_tooltips(ecs: &World, ctx: &mut Rltk) {
     let map = ecs.fetch::<Map>();
     let names = ecs.read_storage::<Name>();
     let positions = ecs.read_storage::<Position>();
+    let hidden = ecs.read_storage::<Hidden>();
 
     let mouse_pos = ctx.mouse_pos();
 
@@ -118,7 +120,7 @@ fn draw_tooltips(ecs: &World, ctx: &mut Rltk) {
 
     let mut tooltip: Vec<String> = Vec::new();
 
-    for (name, position) in (&names, &positions).join() {
+    for (name, position, _) in (&names, &positions, !&hidden).join() {
         let idx = map.xy_idx(position.x, position.y);
         if position.x == mouse_pos.0 && position.y == mouse_pos.1 && map.visible_tiles[idx] {
             tooltip.push(name.name.to_string());
@@ -456,11 +458,11 @@ pub fn main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
     // Render the menu background
     let assets = gs.ecs.fetch::<RexAssets>();
     ctx.render_xp_sprite(&assets.menu, 0, 0);
-    ctx.draw_box_double(
+    ctx.draw_box(
         24,
         18,
         31,
-        10,
+        12,
         RGB::named(rltk::WHEAT),
         RGB::named(rltk::BLACK),
     );
@@ -494,6 +496,7 @@ pub fn main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
         // Option foreground text colors
         let mut rg_fg = RGB::named(rltk::WHITE);
         let mut ng_fg = RGB::named(rltk::WHITE);
+        let mut sg_fg = RGB::named(rltk::WHITE);
         let mut lg_fg = RGB::named(rltk::WHITE);
         let mut q_fg = RGB::named(rltk::WHITE);
 
@@ -501,6 +504,7 @@ pub fn main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
         match selection {
             MainMenuSelection::ResumeGame => rg_fg = RGB::named(rltk::MAGENTA),
             MainMenuSelection::NewGame => ng_fg = RGB::named(rltk::MAGENTA),
+            MainMenuSelection::SaveGame => sg_fg = RGB::named(rltk::MAGENTA),
             MainMenuSelection::LoadGame => lg_fg = RGB::named(rltk::MAGENTA),
             MainMenuSelection::Quit => q_fg = RGB::named(rltk::MAGENTA),
         }
@@ -509,6 +513,8 @@ pub fn main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
         y += 1;
         ctx.print_color_centered(y, ng_fg, RGB::named(rltk::BLACK), "Begin New Game");
         y += 1;
+        ctx.print_color_centered(y, sg_fg, RGB::named(rltk::BLACK), "Save Game");
+        y += 1;
 
         if save_exists {
             ctx.print_color_centered(y, lg_fg, RGB::named(rltk::BLACK), "Load Game");
@@ -516,7 +522,7 @@ pub fn main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
         }
         if can_quit {
             ctx.print_color_centered(y, q_fg, RGB::named(rltk::BLACK), "Quit");
-            y += 1;
+            // y += 1;
         }
 
         match ctx.key {
@@ -536,7 +542,8 @@ pub fn main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
                     match selection {
                         MainMenuSelection::ResumeGame => newselection = MainMenuSelection::Quit,
                         MainMenuSelection::NewGame => newselection = MainMenuSelection::ResumeGame,
-                        MainMenuSelection::LoadGame => newselection = MainMenuSelection::NewGame,
+                        MainMenuSelection::SaveGame => newselection = MainMenuSelection::NewGame,
+                        MainMenuSelection::LoadGame => newselection = MainMenuSelection::SaveGame,
                         MainMenuSelection::Quit => newselection = MainMenuSelection::LoadGame,
                     }
                     // Skip Quit Game option if this would crash game (in wasm)
@@ -545,7 +552,7 @@ pub fn main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
                     }
                     // When a save file does not exist, skip Load Game option
                     if newselection == MainMenuSelection::LoadGame && !save_exists {
-                        newselection = MainMenuSelection::NewGame;
+                        newselection = MainMenuSelection::SaveGame;
                     }
 
                     return MainMenuResult::NoSelection {
@@ -556,7 +563,8 @@ pub fn main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
                     let mut newselection;
                     match selection {
                         MainMenuSelection::ResumeGame => newselection = MainMenuSelection::NewGame,
-                        MainMenuSelection::NewGame => newselection = MainMenuSelection::LoadGame,
+                        MainMenuSelection::NewGame => newselection = MainMenuSelection::SaveGame,
+                        MainMenuSelection::SaveGame => newselection = MainMenuSelection::LoadGame,
                         MainMenuSelection::LoadGame => newselection = MainMenuSelection::Quit,
                         MainMenuSelection::Quit => newselection = MainMenuSelection::ResumeGame,
                     }
