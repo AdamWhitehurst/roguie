@@ -1,11 +1,21 @@
 use super::*;
 use specs::error::NoError;
 use specs::saveload::{DeserializeComponents, MarkedBuilder, SerializeComponents};
-use std::fs::{read_to_string, File};
-use std::path::Path;
+
+// WASM-only imports
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
 
+// Non-WASM-only imports
+#[cfg(not(target_arch = "wasm32"))]
+use std::fs::{read_to_string, File};
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
+
+// WASM Bindings to JS for saving and loading data from storage
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 extern "C" {
     fn save(s: &[u8]);
