@@ -339,9 +339,9 @@ impl State {
         self.ecs.insert(RunState::MainMenu {
             menu_selection: MainMenuSelection::NewGame,
         });
-        let map: Map = map_builders::build_random_map(1);
+        let (map, start) = map_builders::build_random_map(1);
 
-        let (player_x, player_y) = map.rooms[0].center();
+        let (player_x, player_y) = (start.x, start.y);
         let player_entity = spawner::player(&mut self.ecs, player_x, player_y);
         self.ecs.insert(player_entity);
 
@@ -408,11 +408,14 @@ impl State {
         // Build a new map and place the player
         let worldmap;
         let current_depth;
+        let player_start;
         {
             let mut worldmap_resource = self.ecs.write_resource::<Map>();
             current_depth = worldmap_resource.depth;
-            *worldmap_resource = map_builders::build_random_map(current_depth + 1);
+            let (map, start) = map_builders::build_random_map(current_depth + 1);
+            *worldmap_resource = map;
             worldmap = worldmap_resource.clone();
+            player_start = start;
         }
 
         // Spawn bad guys
@@ -421,15 +424,14 @@ impl State {
         }
 
         // Place the player and update resources
-        let (player_x, player_y) = worldmap.rooms[0].center();
         let mut player_position = self.ecs.write_resource::<Point>();
-        *player_position = Point::new(player_x, player_y);
+        *player_position = Point::new(player_start.x, player_start.y);
         let mut position_components = self.ecs.write_storage::<Position>();
         let player_entity = self.ecs.fetch::<Entity>();
         let player_pos_comp = position_components.get_mut(*player_entity);
         if let Some(player_pos_comp) = player_pos_comp {
-            player_pos_comp.x = player_x;
-            player_pos_comp.y = player_y;
+            player_pos_comp.x = player_start.x;
+            player_pos_comp.y = player_start.y;
         }
 
         // Mark the player's visibility as dirty
@@ -463,10 +465,13 @@ impl State {
 
         // Build a new map and place the player
         let worldmap;
+        let player_start;
         {
             let mut worldmap_resource = self.ecs.write_resource::<Map>();
-            *worldmap_resource = map_builders::build_random_map(1);
+            let (map, start) = map_builders::build_random_map(1);
+            *worldmap_resource = map;
             worldmap = worldmap_resource.clone();
+            player_start = start;
         }
 
         // Spawn bad guys
@@ -475,7 +480,7 @@ impl State {
         }
 
         // Place the player and update resources
-        let (player_x, player_y) = worldmap.rooms[0].center();
+        let (player_x, player_y) = (player_start.x, player_start.y);
         let player_entity = spawner::player(&mut self.ecs, player_x, player_y);
         let mut player_position = self.ecs.write_resource::<Point>();
         *player_position = Point::new(player_x, player_y);
