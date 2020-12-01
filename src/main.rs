@@ -41,6 +41,7 @@ mod hunger_system;
 pub use hunger_system::*;
 mod rex_assets;
 pub use rex_assets::*;
+pub mod map_builders;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum RunState {
@@ -238,13 +239,10 @@ impl GameState for State {
                         menu_selection: selected,
                     },
                     gui::MainMenuResult::Selected { selected } => match selected {
-                        gui::MainMenuSelection::ResumeGame => RunState::AwaitingInput,
+                        gui::MainMenuSelection::ResumeGame => RunState::PreRun,
                         gui::MainMenuSelection::NewGame => {
                             self.game_over_cleanup();
-
-                            RunState::MainMenu {
-                                menu_selection: gui::MainMenuSelection::NewGame,
-                            }
+                            RunState::PreRun
                         }
                         gui::MainMenuSelection::SaveGame => RunState::SaveGame,
                         gui::MainMenuSelection::LoadGame => {
@@ -341,7 +339,7 @@ impl State {
         self.ecs.insert(RunState::MainMenu {
             menu_selection: MainMenuSelection::NewGame,
         });
-        let map: Map = Map::new_map_rooms_and_corridors(1);
+        let map: Map = map_builders::build_random_map(1);
 
         let (player_x, player_y) = map.rooms[0].center();
         let player_entity = spawner::player(&mut self.ecs, player_x, player_y);
@@ -400,32 +398,41 @@ impl State {
 
     fn goto_next_level(&mut self) {
         // Delete entities that aren't the player or his/her equipment
-        // TODO: Convert to `entities_local_to_map` and store in map for later reinitting
         let to_delete = self.entities_to_remove_on_level_change();
-        for e in to_delete {
+        for target in to_delete {
             self.ecs
-                .delete_entity(e)
-                .expect("Coud not delete entity in goto_next_level");
+                .delete_entity(target)
+                .expect("Unable to delete entity");
         }
 
-        let mut worldmap = Map::new_deeper_map(&mut self.ecs);
+        // Build a new map and place the player
+        let worldmap;
+        let current_depth;
+        {
+            let mut worldmap_resource = self.ecs.write_resource::<Map>();
+            current_depth = worldmap_resource.depth;
+            *worldmap_resource = map_builders::build_random_map(current_depth + 1);
+            worldmap = worldmap_resource.clone();
+        }
 
-        worldmap.fill_all_rooms(&mut self.ecs, true);
+        // Spawn bad guys
+        for room in worldmap.rooms.iter().skip(1) {
+            spawner::fill_room(&mut self.ecs, room, current_depth + 1);
+        }
 
-        // Find new position for player
-        let (new_player_x, new_player_y) = worldmap.rooms[0].center();
-        // Update player's position
-
+        // Place the player and update resources
+        let (player_x, player_y) = worldmap.rooms[0].center();
         let mut player_position = self.ecs.write_resource::<Point>();
-        *player_position = Point::new(new_player_x, new_player_y);
+        *player_position = Point::new(player_x, player_y);
         let mut position_components = self.ecs.write_storage::<Position>();
         let player_entity = self.ecs.fetch::<Entity>();
         let player_pos_comp = position_components.get_mut(*player_entity);
         if let Some(player_pos_comp) = player_pos_comp {
-            player_pos_comp.x = new_player_x;
-            player_pos_comp.y = new_player_y;
+            player_pos_comp.x = player_x;
+            player_pos_comp.y = player_y;
         }
-        // Mark player's viewshed dirty
+
+        // Mark the player's visibility as dirty
         let mut viewshed_components = self.ecs.write_storage::<Viewshed>();
         let vs = viewshed_components.get_mut(*player_entity);
         if let Some(vs) = vs {
@@ -458,7 +465,7 @@ impl State {
         let worldmap;
         {
             let mut worldmap_resource = self.ecs.write_resource::<Map>();
-            *worldmap_resource = Map::new_map_rooms_and_corridors(1);
+            *worldmap_resource = map_builders::build_random_map(1);
             worldmap = worldmap_resource.clone();
         }
 
