@@ -212,6 +212,19 @@ pub struct EntryTrigger {}
 #[derive(Component, Debug, Serialize, Deserialize, Clone)]
 pub struct EntityMoved {}
 
-// Tells trigger system to only apply `InflictsDamage` effect once
+/// Tells trigger system to only apply `InflictsDamage` effect once
 #[derive(Component, Debug, Serialize, Deserialize, Clone)]
 pub struct SingleActivation {}
+
+/// Periodically alternates between `Hidden` and `!Hidden`
+#[derive(Component, Debug, Serialize, Deserialize, Clone)]
+pub struct PeriodicHiding {
+    pub period: i32,
+    pub offset: i32,
+}
+
+/// Has a chance to be revealed on site
+#[derive(Component, Debug, Serialize, Deserialize, Clone)]
+pub struct RevealChance {
+    pub chance: i32,
+}

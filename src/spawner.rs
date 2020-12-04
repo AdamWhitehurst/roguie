@@ -1,9 +1,11 @@
+use crate::RevealChance;
+
 use super::{
     random_table::*, AreaOfEffect, BlocksTile, CombatStats, Confusion, Consumable, DefenseBonus,
     EntryTrigger, EquipmentSlot, Equippable, Hidden, HungerClock, HungerState, InflictsDamage,
-    Item, MagicMapper, MeleePowerBonus, MonsterAI, Name, Player, Position, ProvidesFood,
-    ProvidesHealing, Ranged, Rect, Renderable, SerializeMe, SimpleMarker, SingleActivation,
-    Viewshed, MAP_WIDTH,
+    Item, MagicMapper, MeleePowerBonus, MonsterAI, Name, PeriodicHiding, Player, Position,
+    ProvidesFood, ProvidesHealing, Ranged, Rect, Renderable, SerializeMe, SimpleMarker,
+    SingleActivation, Viewshed, MAP_WIDTH,
 };
 use rltk::{RandomNumberGenerator, RGB};
 use specs::prelude::*;
@@ -27,6 +29,7 @@ fn room_table(map_depth: i32) -> RandomTable {
         .add("Rations", 10)
         .add("Magic Mapping Scroll", 2)
         .add("Bear Trap", 3)
+        .add("Periodic Trap", 4)
 }
 
 /// Spawns the player and returns their entity object
@@ -149,6 +152,7 @@ pub fn fill_room(ecs: &mut World, room: &Rect, map_depth: i32) {
             "Rations" => rations(ecs, x, y),
             "Magic Mapping Scroll" => magic_mapping_scroll(ecs, x, y),
             "Bear Trap" => bear_trap(ecs, x, y),
+            "Periodic Trap" => periodic_trap(ecs, x, y),
             _ => {}
         }
     }
@@ -374,6 +378,37 @@ fn bear_trap(ecs: &mut World, x: i32, y: i32) {
         .with(EntryTrigger {})
         .with(InflictsDamage { damage: 6 })
         .with(SingleActivation {})
+        .with(RevealChance { chance: 36 })
+        .marked::<SimpleMarker<SerializeMe>>()
+        .build();
+}
+
+fn periodic_trap(ecs: &mut World, x: i32, y: i32) {
+    let rand_offset;
+    {
+        rand_offset = ecs
+            .write_resource::<rltk::RandomNumberGenerator>()
+            .roll_dice(1, 3);
+    }
+    ecs.create_entity()
+        .with(Position { x, y })
+        .with(Renderable {
+            glyph: rltk::to_cp437('^'),
+            fg: RGB::named(rltk::BEIGE),
+            bg: RGB::named(rltk::BLACK),
+            render_order: 2,
+        })
+        .with(Hidden {})
+        .with(Name {
+            name: "Periodic Trap".to_string(),
+        })
+        .with(EntryTrigger {})
+        .with(InflictsDamage { damage: 6 })
+        .with(SingleActivation {})
+        .with(PeriodicHiding {
+            period: 4,
+            offset: rand_offset,
+        })
         .marked::<SimpleMarker<SerializeMe>>()
         .build();
 }

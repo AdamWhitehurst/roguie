@@ -55,6 +55,49 @@ macro_rules! deserialize_individually {
     };
 }
 
+pub fn register_storages(ecs: &mut World) {
+    // Storage registration order must match save/load order!
+    ecs.register::<Position>();
+    ecs.register::<Name>();
+    ecs.register::<Renderable>();
+    ecs.register::<Player>();
+    ecs.register::<Viewshed>();
+    ecs.register::<MonsterAI>();
+    ecs.register::<BlocksTile>();
+    ecs.register::<CombatStats>();
+    ecs.register::<SufferDamage>();
+    ecs.register::<WantsToMelee>();
+    ecs.register::<WantsToPickupItem>();
+    ecs.register::<WantsToDropItem>();
+    ecs.register::<WantsToUseItem>();
+    ecs.register::<InBackpack>();
+    ecs.register::<Item>();
+    ecs.register::<Consumable>();
+    ecs.register::<ProvidesHealing>();
+    ecs.register::<Ranged>();
+    ecs.register::<InflictsDamage>();
+    ecs.register::<AreaOfEffect>();
+    ecs.register::<Confusion>();
+    ecs.register::<SerializationHelper>();
+    ecs.register::<SimpleMarker<SerializeMe>>();
+    ecs.register::<Equippable>();
+    ecs.register::<Equipped>();
+    ecs.register::<MeleePowerBonus>();
+    ecs.register::<DefenseBonus>();
+    ecs.register::<WantsToRemoveItem>();
+    ecs.register::<HungerClock>();
+    ecs.register::<ProvidesFood>();
+    ecs.register::<ParticleLifetime>();
+    ecs.register::<MagicMapper>();
+    ecs.register::<Hidden>();
+    ecs.register::<EntryTrigger>();
+    ecs.register::<EntityMoved>();
+    ecs.register::<SingleActivation>();
+    ecs.register::<PeriodicHiding>();
+    ecs.register::<RevealChance>();
+    // Storage registration order must match save/load order!
+}
+
 fn deserialize_world<'de, R>(ecs: &mut World, deserializer: &'de mut serde_json::Deserializer<R>)
 where
     R: serde_json::de::Read<'de>,
@@ -104,7 +147,9 @@ where
         Hidden,
         EntryTrigger,
         EntityMoved,
-        SingleActivation
+        SingleActivation,
+        PeriodicHiding,
+        RevealChance
     );
 }
 
@@ -157,7 +202,9 @@ where
         Hidden,
         EntryTrigger,
         EntityMoved,
-        SingleActivation
+        SingleActivation,
+        PeriodicHiding,
+        RevealChance
     );
 }
 

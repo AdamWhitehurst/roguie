@@ -1,4 +1,4 @@
-use super::{gamelog::GameLog, Hidden, Map, Name, Player, Position, Viewshed};
+use crate::{gamelog::GameLog, Hidden, Map, Name, Player, Position, RevealChance, Viewshed};
 use rltk::{field_of_view, Point};
 use specs::prelude::*;
 
@@ -15,11 +15,22 @@ impl<'a> System<'a> for VisibilitySystem {
         WriteExpect<'a, rltk::RandomNumberGenerator>,
         WriteExpect<'a, GameLog>,
         ReadStorage<'a, Name>,
+        ReadStorage<'a, RevealChance>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (mut map, entities, mut viewshed, pos, player, mut hidden, mut rng, mut log, names) =
-            data;
+        let (
+            mut map,
+            entities,
+            mut viewshed,
+            pos,
+            player,
+            mut hidden,
+            mut rng,
+            mut log,
+            names,
+            reveal_chances,
+        ) = data;
 
         for (ent, viewshed, pos) in (&entities, &mut viewshed, &pos).join() {
             if viewshed.dirty {
@@ -43,11 +54,14 @@ impl<'a> System<'a> for VisibilitySystem {
                             map.revealed_tiles[idx] = true;
                             map.visible_tiles[idx] = true;
 
-                            // Chance to reveal hidden things
+                            // Try to reveal things that have a chance
                             for e in map.tile_content[idx].iter() {
                                 let maybe_hidden = hidden.get(*e);
-                                if let Some(_maybe_hidden) = maybe_hidden {
-                                    if rng.roll_dice(1, 35) == 1 {
+                                let maybe_reveal_chance = reveal_chances.get(*e);
+                                if let (Some(_), Some(reveal_chance)) =
+                                    (maybe_hidden, maybe_reveal_chance)
+                                {
+                                    if rng.roll_dice(1, reveal_chance.chance) == 1 {
                                         let name = names.get(*e);
                                         if let Some(name) = name {
                                             log.entries
