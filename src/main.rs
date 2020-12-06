@@ -45,6 +45,8 @@ pub mod map_builders;
 mod periodic_hiding_system;
 pub use periodic_hiding_system::*;
 
+const SHOW_MAPGEN_VISUALIZER: bool = false;
+
 #[derive(PartialEq, Copy, Clone)]
 pub enum RunState {
     /// Systems have fully responded to latest player
@@ -78,10 +80,24 @@ pub enum RunState {
     GameOver,
     /// Player has revealed the map
     MagicMapReveal { row: i32 },
+    /// Generating a new Map
+    MapGeneration,
 }
 
 pub struct State {
+    /// Specs ECS Storage and Resource data
     pub ecs: World,
+    // Because we need to know the start which we want to transition to after
+    // visualizing, but enums cannot store cyclic references, so we store in
+    // State. Maybe there's a better way to do this?
+    /// What game should transition to after visualizing a map gen state
+    mapgen_next_state: Option<RunState>,
+    /// How far through the history we are during playback
+    mapgen_index: usize,
+    /// A copy of the map history frames to play
+    mapgen_history: Vec<Map>,
+    /// Used for frame timing during playback
+    mapgen_timer: f32,
 }
 
 impl GameState for State {
@@ -96,7 +112,7 @@ impl GameState for State {
             RunState::MainMenu { .. } | RunState::GameOver { .. } => {}
             // Otherwise, handle drawing in-game map
             _ => {
-                draw_map(&self.ecs, ctx);
+                draw_map(&self.ecs.fetch::<Map>(), ctx);
 
                 {
                     let positions = self.ecs.read_storage::<Position>();
@@ -122,6 +138,36 @@ impl GameState for State {
 
         // Handle updating state based on current state
         newrunstate = match newrunstate {
+            RunState::MapGeneration => {
+                let mut returnstate = newrunstate;
+                // If visualizer is not enabled, just transition to the next state.
+                if !SHOW_MAPGEN_VISUALIZER {
+                    returnstate = self.mapgen_next_state.unwrap();
+                }
+                // Clear screen
+                ctx.cls();
+
+                // Draw map with history at current frame of the current state
+                // (i.e. trippin' through history)
+                draw_map(&self.mapgen_history[self.mapgen_index], ctx);
+
+                // Increment timer
+                self.mapgen_timer += ctx.frame_time_ms;
+                // If current frame time has been displayed long enough...
+                if self.mapgen_timer > 300.0 {
+                    // Reset timer
+                    self.mapgen_timer = 0.0;
+                    // Next frame
+                    self.mapgen_index += 1;
+                    // If this was last frame, go to next runstate
+                    if self.mapgen_index >= self.mapgen_history.len() {
+                        returnstate = self.mapgen_next_state.unwrap();
+                    }
+                }
+                // Return whatever new runstate is
+                returnstate
+            }
+
             RunState::PreRun => {
                 self.run_systems();
                 RunState::AwaitingInput
@@ -306,6 +352,17 @@ impl GameState for State {
 }
 
 impl State {
+    fn new() -> State {
+        State {
+            ecs: World::new(),
+            mapgen_next_state: Some(RunState::MainMenu {
+                menu_selection: gui::MainMenuSelection::NewGame,
+            }),
+            mapgen_index: 0,
+            mapgen_history: Vec::new(),
+            mapgen_timer: 0.0,
+        }
+    }
     fn run_systems(&mut self) {
         let mut vis = VisibilitySystem {};
         vis.run_now(&self.ecs);
@@ -340,9 +397,15 @@ impl State {
     }
 
     fn generate_world_map(&mut self, new_depth: i32) {
+        // Reset Map Gen variables
+        self.mapgen_index = 0;
+        self.mapgen_timer = 0.0;
+        self.mapgen_history.clear();
+
         // Create a new map
         let mut builder = map_builders::random_builder(new_depth);
         builder.build_map();
+        self.mapgen_history = builder.get_snapshot_history();
 
         // Apply new map to World's Map resource
         {
@@ -383,9 +446,7 @@ impl State {
         self.ecs.insert(player_entity);
         self.ecs.insert(particle_system::ParticleBuilder::new());
         self.ecs.insert(rex_assets::RexAssets::new());
-        self.ecs.insert(RunState::MainMenu {
-            menu_selection: MainMenuSelection::NewGame,
-        });
+        self.ecs.insert(RunState::MapGeneration {});
         self.ecs.insert(GameLog {
             entries: vec!["Welcome to Roguie!".to_string()],
         });
@@ -485,16 +546,21 @@ impl State {
 }
 
 fn main() -> rltk::BError {
-    use rltk::RltkBuilder;
-    let context = RltkBuilder::simple80x50()
+    let context = rltk::RltkBuilder::simple80x50()
         // .with_automatic_console_resize(true)
         .with_title("Roguies: ")
         .build()?;
-    let mut gs = State { ecs: World::new() };
 
+    // Get a new ECS World GameState for rltk
+    let mut gs = State::new();
+    // Set up serialization marker before adding anything else to World
     gs.ecs.insert(SimpleMarkerAllocator::<SerializeMe>::new());
+    // Register Component Storages
     save_load_system::register_storages(&mut gs.ecs);
+    // Init system resources
     gs.init_resources();
-
+    // Generate initial map
+    gs.generate_world_map(1);
+    // Run the game!
     rltk::main_loop(context, gs)
 }
