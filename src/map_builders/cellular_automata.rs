@@ -1,7 +1,4 @@
-use super::common::*;
-use super::{
-    spawner, Map, MapBuilder, Position, Rect, TileType, MIN_ROOM_SIZE, SHOW_MAPGEN_VISUALIZER,
-};
+use super::{spawner, Map, MapBuilder, Position, TileType, SHOW_MAPGEN_VISUALIZER};
 use rltk::RandomNumberGenerator;
 use specs::prelude::*;
 use std::collections::HashMap;
