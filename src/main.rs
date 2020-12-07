@@ -143,25 +143,26 @@ impl GameState for State {
                 // If visualizer is not enabled, just transition to the next state.
                 if !SHOW_MAPGEN_VISUALIZER {
                     returnstate = self.mapgen_next_state.unwrap();
-                }
-                // Clear screen
-                ctx.cls();
+                } else {
+                    // Clear screen
+                    ctx.cls();
 
-                // Draw map with history at current frame of the current state
-                // (i.e. trippin' through history)
-                draw_map(&self.mapgen_history[self.mapgen_index], ctx);
+                    // Draw map with history at current frame of the current state
+                    // (i.e. trippin' through history)
+                    draw_map(&self.mapgen_history[self.mapgen_index], ctx);
 
-                // Increment timer
-                self.mapgen_timer += ctx.frame_time_ms;
-                // If current frame time has been displayed long enough...
-                if self.mapgen_timer > 300.0 {
-                    // Reset timer
-                    self.mapgen_timer = 0.0;
-                    // Next frame
-                    self.mapgen_index += 1;
-                    // If this was last frame, go to next runstate
-                    if self.mapgen_index >= self.mapgen_history.len() {
-                        returnstate = self.mapgen_next_state.unwrap();
+                    // Increment timer
+                    self.mapgen_timer += ctx.frame_time_ms;
+                    // If current frame time has been displayed long enough...
+                    if self.mapgen_timer > 300.0 {
+                        // Reset timer
+                        self.mapgen_timer = 0.0;
+                        // Next frame
+                        self.mapgen_index += 1;
+                        // If this was last frame, go to next runstate
+                        if self.mapgen_index >= self.mapgen_history.len() {
+                            returnstate = self.mapgen_next_state.unwrap();
+                        }
                     }
                 }
                 // Return whatever new runstate is
