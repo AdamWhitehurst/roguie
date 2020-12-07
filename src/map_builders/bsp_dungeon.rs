@@ -156,22 +156,8 @@ impl BspDungeonBuilder {
             self.map.tiles[idx] = TileType::Floor;
         }
     }
-}
 
-impl MapBuilder for BspDungeonBuilder {
-    fn get_map(&self) -> Map {
-        self.map.clone()
-    }
-
-    fn get_starting_position(&self) -> Position {
-        self.starting_position.clone()
-    }
-
-    fn get_snapshot_history(&self) -> Vec<Map> {
-        self.history.clone()
-    }
-
-    fn build_map(&mut self) {
+    fn build(&mut self) {
         let mut rng = RandomNumberGenerator::new();
         // Clear old room rects
         self.rects.clear();
@@ -229,6 +215,24 @@ impl MapBuilder for BspDungeonBuilder {
         let stairs = self.rooms[self.rooms.len() - 1].center();
         let stairs_idx = self.map.xy_idx(stairs.0, stairs.1);
         self.map.tiles[stairs_idx] = TileType::DownStairs;
+    }
+}
+
+impl MapBuilder for BspDungeonBuilder {
+    fn get_map(&self) -> Map {
+        self.map.clone()
+    }
+
+    fn get_starting_position(&self) -> Position {
+        self.starting_position.clone()
+    }
+
+    fn get_snapshot_history(&self) -> Vec<Map> {
+        self.history.clone()
+    }
+
+    fn build_map(&mut self) {
+        self.build();
     }
 
     fn spawn_entities(&mut self, ecs: &mut World) {
