@@ -189,6 +189,7 @@ fn spawn_entity(ecs: &mut World, spawn: &(&usize, &String)) {
         "Rations" => rations(ecs, x, y),
         "Magic Mapping Scroll" => magic_mapping_scroll(ecs, x, y),
         "Bear Trap" => bear_trap(ecs, x, y),
+        "Periodic Trap" => periodic_trap(ecs, x, y),
         _ => {}
     }
 }

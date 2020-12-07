@@ -1,4 +1,4 @@
-use super::{common::*, MapBuilder, MIN_ROOM_SIZE};
+use super::{MapBuilder, MIN_ROOM_SIZE};
 use crate::{spawner, Map, Position, Rect, TileType, SHOW_MAPGEN_VISUALIZER};
 use rltk::RandomNumberGenerator;
 use specs::prelude::*;
